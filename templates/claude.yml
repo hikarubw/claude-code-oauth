@@ -1,0 +1,986 @@
+name: Claude Code
+
+on:
+  # PR関連
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+    
+  # Issue関連 (追加)
+  issues:
+    types: [opened, assigned]
+  issue_comment:
+    types: [created]
+
+# 同時実行制御（Issue/PRごとに制御）
+concurrency:
+  group: claude-${{ github.repository }}-${{ github.event.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  claude:
+    # セキュリティ重視の条件分岐（Issue+PR完全対応）
+    if: |
+      (
+        github.event_name == 'pull_request_target' &&
+        (
+          github.event.pull_request.head.repo.full_name == github.repository ||
+          contains(github.event.pull_request.author_association, 'COLLABORATOR') ||
+          contains(github.event.pull_request.author_association, 'MEMBER') ||
+          contains(github.event.pull_request.author_association, 'OWNER')
+        ) &&
+        contains(github.event.pull_request.body, '@claude')
+      ) ||
+      (
+        github.event_name == 'issue_comment' &&
+        (
+          github.event.sender.login == github.repository_owner ||
+          contains(github.event.comment.author_association, 'COLLABORATOR') ||
+          contains(github.event.comment.author_association, 'MEMBER') ||
+          contains(github.event.comment.author_association, 'OWNER')
+        ) &&
+        contains(github.event.comment.body, '@claude')
+      ) ||
+      (
+        github.event_name == 'issues' &&
+        (
+          github.event.sender.login == github.repository_owner ||
+          contains(github.event.issue.author_association, 'COLLABORATOR') ||
+          contains(github.event.issue.author_association, 'MEMBER') ||
+          contains(github.event.issue.author_association, 'OWNER')
+        ) &&
+        (
+          contains(github.event.issue.body, '@claude') ||
+          contains(github.event.issue.title, '@claude')
+        )
+      ) ||
+      (
+        github.event_name == 'pull_request_review_comment' &&
+        (
+          github.event.sender.login == github.repository_owner ||
+          contains(github.event.comment.author_association, 'COLLABORATOR') ||
+          contains(github.event.comment.author_association, 'MEMBER') ||
+          contains(github.event.comment.author_association, 'OWNER')
+        ) &&
+        contains(github.event.comment.body, '@claude')
+      ) ||
+      (
+        github.event_name == 'pull_request_review' &&
+        (
+          github.event.sender.login == github.repository_owner ||
+          contains(github.event.review.author_association, 'COLLABORATOR') ||
+          contains(github.event.review.author_association, 'MEMBER') ||
+          contains(github.event.review.author_association, 'OWNER')
+        ) &&
+        contains(github.event.review.body, '@claude')
+      )
+    
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    permissions:
+      # 📁 コンテンツ管理（最高権限）
+      contents: write
+      pull-requests: write
+      issues: write
+      discussions: write
+      
+      # 🔧 開発・CI/CD管理
+      actions: write
+      checks: write
+      statuses: write
+      pages: write
+      deployments: write
+      
+      # 📦 パッケージ・セキュリティ管理
+      packages: write
+      security-events: write
+      
+      # 🎯 プロジェクト・メタデータ管理
+      repository-projects: write
+      metadata: read
+      
+      # 🆔 認証・トークン管理
+      id-token: write
+
+    steps:
+      - name: コンテキスト情報の取得
+        id: context-info
+        uses: actions/github-script@v7
+        with:
+          script: |
+            let issueNumber, prNumber, headRef, baseRef, headSha, isPR = false;
+            let triggerText = '';
+            
+            if (context.eventName === 'pull_request_target') {
+              // PR作成・更新時
+              isPR = true;
+              issueNumber = context.payload.pull_request.number;
+              prNumber = context.payload.pull_request.number;
+              headRef = context.payload.pull_request.head.ref;
+              baseRef = context.payload.pull_request.base.ref;
+              headSha = context.payload.pull_request.head.sha;
+              triggerText = context.payload.pull_request.body;
+              
+              console.log(`PR ${String.fromCharCode(35)}${prNumber}: ${baseRef} <- ${headRef} (${headSha})`);
+              
+            } else if (context.eventName === 'issues') {
+              // Issue作成・アサイン時
+              isPR = false;
+              issueNumber = context.payload.issue.number;
+              triggerText = `${context.payload.issue.title} ${context.payload.issue.body}`;
+              
+              console.log(`Issue ${String.fromCharCode(35)}${issueNumber} created`);
+              
+            } else if (context.eventName === 'issue_comment') {
+              // Issue/PRコメント
+              issueNumber = context.payload.issue.number;
+              triggerText = context.payload.comment.body;
+              
+              if (context.payload.issue.pull_request) {
+                // PRのコメント
+                isPR = true;
+                try {
+                  const pr = await github.rest.pulls.get({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    pull_number: issueNumber
+                  });
+                  prNumber = issueNumber;
+                  headRef = pr.data.head.ref;
+                  baseRef = pr.data.base.ref;
+                  headSha = pr.data.head.sha;
+                  
+                  console.log(`PR Comment ${String.fromCharCode(35)}${prNumber}: ${baseRef} <- ${headRef}`);
+                } catch (error) {
+                  console.error('PR情報取得エラー:', error);
+                  // エラー時は通常のIssueとして処理
+                  isPR = false;
+                }
+              } else {
+                // 通常のIssueコメント
+                isPR = false;
+                console.log(`Issue Comment ${String.fromCharCode(35)}${issueNumber}`);
+              }
+              
+            } else if (context.eventName === 'pull_request_review_comment' || context.eventName === 'pull_request_review') {
+              // PRレビュー関連
+              isPR = true;
+              issueNumber = context.payload.pull_request.number;
+              prNumber = context.payload.pull_request.number;
+              headRef = context.payload.pull_request.head.ref;
+              baseRef = context.payload.pull_request.base.ref;
+              headSha = context.payload.pull_request.head.sha;
+              
+              if (context.eventName === 'pull_request_review_comment') {
+                triggerText = context.payload.comment.body;
+              } else {
+                triggerText = context.payload.review.body;
+              }
+              
+              console.log(`PR Review ${String.fromCharCode(35)}${prNumber}: ${baseRef} <- ${headRef}`);
+            }
+            
+            // 出力設定
+            core.setOutput('issue-number', issueNumber);
+            core.setOutput('pr-number', prNumber || '');
+            core.setOutput('head-ref', headRef || '');
+            core.setOutput('base-ref', baseRef || '');
+            core.setOutput('head-sha', headSha || '');
+            core.setOutput('is-pr', isPR);
+            core.setOutput('trigger-text', triggerText);
+            
+            console.log(`Final Context: Issue ${String.fromCharCode(35)}${issueNumber}, isPR: ${isPR}, Event: ${context.eventName}`);
+
+      - name: 環境検証
+        run: |
+          echo "🔍 実行環境情報"
+          echo "=================================="
+          echo "Event: ${{ github.event_name }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Issue Number: ${{ steps.context-info.outputs.issue-number }}"
+          echo "Is PR: ${{ steps.context-info.outputs.is-pr }}"
+          echo "PR Number: ${{ steps.context-info.outputs.pr-number }}"
+          echo "Head Ref: ${{ steps.context-info.outputs.head-ref }}"
+          echo "Base Ref: ${{ steps.context-info.outputs.base-ref }}"
+          echo "Head SHA: ${{ steps.context-info.outputs.head-sha }}"
+          echo "=================================="
+          
+          # Secretsの存在確認
+          if [ -z "${{ secrets.CLAUDE_ACCESS_TOKEN }}" ]; then
+            echo "::error::CLAUDE_ACCESS_TOKEN が設定されていません"
+            exit 1
+          fi
+          
+          echo "✅ 環境検証完了"
+
+      - name: リポジトリのチェックアウト
+        uses: actions/checkout@v4
+        with:
+          # PRの場合はfeature branchを、Issueの場合はdefault branchをチェックアウト
+          ref: ${{ steps.context-info.outputs.head-sha || github.ref }}
+          fetch-depth: ${{ steps.context-info.outputs.is-pr == 'true' && 0 || 1 }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: ベースブランチの取得 (PR専用)
+        if: steps.context-info.outputs.is-pr == 'true' && steps.context-info.outputs.base-ref
+        run: |
+          echo "📥 ベースブランチ取得: ${{ steps.context-info.outputs.base-ref }}"
+          git fetch origin ${{ steps.context-info.outputs.base-ref }}:${{ steps.context-info.outputs.base-ref }}
+          
+          echo "📋 変更されたファイル:"
+          git diff --name-only origin/${{ steps.context-info.outputs.base-ref }}..HEAD || echo "差分取得失敗"
+          
+          echo "📊 変更統計:"
+          git diff --stat origin/${{ steps.context-info.outputs.base-ref }}..HEAD || echo "統計取得失敗"
+
+      - name: プロジェクト情報の取得
+        id: project-info
+        run: |
+          echo "📁 プロジェクト情報収集"
+          
+          # プロジェクトタイプの判定
+          project_type="unknown"
+          framework=""
+          
+          if [ -f "package.json" ]; then
+            project_type="node"
+            echo "📦 Node.js プロジェクト検出"
+            
+            # フレームワーク検出
+            if grep -q "next" package.json; then
+              framework="Next.js"
+            elif grep -q "react" package.json; then
+              framework="React"
+            elif grep -q "vue" package.json; then
+              framework="Vue.js"
+            elif grep -q "angular" package.json; then
+              framework="Angular"
+            elif grep -q "express" package.json; then
+              framework="Express"
+            fi
+          elif [ -f "requirements.txt" ] || [ -f "pyproject.toml" ]; then
+            project_type="python"
+            framework="Python"
+            echo "🐍 Python プロジェクト検出"
+          elif [ -f "Cargo.toml" ]; then
+            project_type="rust"
+            framework="Rust"
+            echo "🦀 Rust プロジェクト検出"
+          elif [ -f "go.mod" ]; then
+            project_type="go"
+            framework="Go"
+            echo "🐹 Go プロジェクト検出"
+          elif [ -f "pom.xml" ] || [ -f "build.gradle" ]; then
+            project_type="java"
+            framework="Java"
+            echo "☕ Java プロジェクト検出"
+          fi
+          
+          echo "project-type=$project_type" >> $GITHUB_OUTPUT
+          echo "framework=$framework" >> $GITHUB_OUTPUT
+          
+          # ファイル数とコード行数の概算
+          total_files=$(find . -type f -name "*.js" -o -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" -o -name "*.py" -o -name "*.rs" -o -name "*.go" -o -name "*.java" | wc -l)
+          echo "total-files=$total_files" >> $GITHUB_OUTPUT
+          
+          echo "📊 プロジェクト概要: $framework ($total_files ファイル)"
+
+      - name: Claude Code実行
+        id: claude
+        uses: hikarubw/claude-code-action@oauth
+        timeout-minutes: 10
+        continue-on-error: true
+        with:
+          use_oauth: true
+          claude_access_token: ${{ secrets.CLAUDE_ACCESS_TOKEN }}
+          claude_refresh_token: ${{ secrets.CLAUDE_REFRESH_TOKEN }}
+          claude_expires_at: ${{ secrets.CLAUDE_EXPIRES_AT }}
+        env:
+          # コンテキスト情報をClaude Codeに渡す
+          GITHUB_CONTEXT_TYPE: ${{ steps.context-info.outputs.is-pr == 'true' && 'PR' || 'ISSUE' }}
+          ISSUE_NUMBER: ${{ steps.context-info.outputs.issue-number }}
+          PR_NUMBER: ${{ steps.context-info.outputs.pr-number }}
+          BASE_BRANCH: ${{ steps.context-info.outputs.base-ref }}
+          HEAD_BRANCH: ${{ steps.context-info.outputs.head-ref }}
+          HEAD_SHA: ${{ steps.context-info.outputs.head-sha }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          TRIGGER_TEXT: ${{ steps.context-info.outputs.trigger-text }}
+          PROJECT_TYPE: ${{ steps.project-info.outputs.project-type }}
+          PROJECT_FRAMEWORK: ${{ steps.project-info.outputs.framework }}
+          TOTAL_FILES: ${{ steps.project-info.outputs.total-files }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          REPOSITORY_NAME: ${{ github.repository }}
+          
+          # 🔑 強化された権限情報
+          CLAUDE_PERMISSIONS_LEVEL: "ENHANCED"
+          REPO_ADMIN_MODE: "true"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+          # 📊 リポジトリ情報
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          REPOSITORY_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          REPOSITORY_PRIVATE: ${{ github.event.repository.private }}
+          REPOSITORY_FORK: ${{ github.event.repository.fork }}
+          
+          # 🎯 実行コンテキスト
+          WORKFLOW_RUN_ID: ${{ github.run_id }}
+          WORKFLOW_RUN_NUMBER: ${{ github.run_number }}
+          COMMIT_SHA: ${{ github.sha }}
+          REF_NAME: ${{ github.ref_name }}
+          
+          # 🔧 利用可能な機能フラグ
+          CAN_CREATE_RELEASES: "true"
+          CAN_MANAGE_LABELS: "true" 
+          CAN_MANAGE_MILESTONES: "true"
+          CAN_MANAGE_PROJECTS: "true"
+          CAN_MANAGE_WIKI: "true"
+          CAN_MANAGE_PAGES: "true"
+          CAN_MANAGE_DEPLOYMENTS: "true"
+          CAN_MANAGE_SECURITY: "true"
+          CAN_MANAGE_PACKAGES: "true"
+          CAN_MANAGE_ACTIONS: "true"
+
+      - name: 高度なリポジトリ管理実行
+        id: advanced-management
+        if: steps.claude.outcome == 'success' && steps.context-info.outputs.issue-number
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issueNumber = ${{ steps.context-info.outputs.issue-number }};
+            const isPR = '${{ steps.context-info.outputs.is-pr }}' === 'true';
+            const triggerText = '${{ steps.context-info.outputs.trigger-text }}';
+            const framework = '${{ steps.project-info.outputs.framework }}';
+            const hashSymbol = String.fromCharCode(35);
+            
+            console.log('🚀 高度なリポジトリ管理を開始...');
+            
+            const managementResults = {
+              labels: [],
+              milestones: [],
+              projects: [],
+              releases: [],
+              security: [],
+              wiki: [],
+              pages: [],
+              actions: []
+            };
+            
+            try {
+              // 1. 🏷️ インテリジェントラベル管理
+              console.log('📋 自動ラベル管理を実行中...');
+              
+              // 必要なラベルを自動作成
+              const requiredLabels = [
+                { name: 'claude-code', color: '7B68EE', description: 'Claude Code によって作成または修正された項目' },
+                { name: 'auto-generated', color: '00D084', description: '自動生成されたコンテンツ' },
+                { name: 'security-fix', color: 'FF4444', description: 'セキュリティ関連の修正' },
+                { name: 'performance', color: 'FFA500', description: 'パフォーマンス改善' },
+                { name: 'technical-debt', color: '8B4513', description: '技術的負債の解決' },
+                { name: 'documentation', color: '0366D6', description: 'ドキュメント関連' },
+                { name: 'ci-cd', color: '28A745', description: 'CI/CD改善' }
+              ];
+              
+              for (const label of requiredLabels) {
+                try {
+                  await github.rest.issues.createLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: label.name,
+                    color: label.color,
+                    description: label.description
+                  });
+                  managementResults.labels.push(`✅ 作成: ${label.name}`);
+                } catch (error) {
+                  if (error.status === 422) {
+                    managementResults.labels.push(`📋 既存: ${label.name}`);
+                  } else {
+                    managementResults.labels.push(`❌ エラー: ${label.name} - ${error.message}`);
+                  }
+                }
+              }
+              
+              // 関連ラベルを自動で付与
+              const autoLabels = ['claude-code', 'auto-generated'];
+              if (triggerText.includes('セキュリティ') || triggerText.includes('security')) {
+                autoLabels.push('security-fix');
+              }
+              if (triggerText.includes('パフォーマンス') || triggerText.includes('performance')) {
+                autoLabels.push('performance');
+              }
+              if (triggerText.includes('技術的負債') || triggerText.includes('technical debt')) {
+                autoLabels.push('technical-debt');
+              }
+              if (triggerText.includes('ドキュメント') || triggerText.includes('document')) {
+                autoLabels.push('documentation');
+              }
+              if (triggerText.includes('CI') || triggerText.includes('CD') || triggerText.includes('deploy')) {
+                autoLabels.push('ci-cd');
+              }
+              
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                labels: autoLabels
+              });
+              
+              managementResults.labels.push(`🏷️ 付与: ${autoLabels.join(', ')}`);
+              
+              // 2. 🎯 マイルストーン自動管理
+              console.log('🎯 マイルストーン管理を実行中...');
+              
+              try {
+                // 現在の年月でマイルストーンを作成
+                const now = new Date();
+                const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const currentMilestone = `${now.getFullYear()}-${monthNames[now.getMonth()]}`;
+                
+                try {
+                  const milestone = await github.rest.issues.createMilestone({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    title: currentMilestone,
+                    description: `${currentMilestone} のタスクと改善項目`,
+                    due_on: new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString()
+                  });
+                  managementResults.milestones.push(`✅ 作成: ${currentMilestone}`);
+                } catch (error) {
+                  if (error.status === 422) {
+                    managementResults.milestones.push(`📅 既存: ${currentMilestone}`);
+                  } else {
+                    managementResults.milestones.push(`❌ エラー: ${error.message}`);
+                  }
+                }
+              } catch (error) {
+                managementResults.milestones.push(`❌ マイルストーン管理エラー: ${error.message}`);
+              }
+              
+              // 3. 📊 プロジェクトボード管理
+              console.log('📊 プロジェクト管理を実行中...');
+              
+              try {
+                // リポジトリのプロジェクトを取得
+                const projects = await github.rest.projects.listForRepo({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo
+                });
+                
+                if (projects.data.length > 0) {
+                  const project = projects.data[0];
+                  managementResults.projects.push(`📊 プロジェクト検出: ${project.name}`);
+                  
+                  // To Doカラムにカードを追加
+                  const columns = await github.rest.projects.listColumns({
+                    project_id: project.id
+                  });
+                  
+                  const todoColumn = columns.data.find(col => 
+                    col.name.toLowerCase().includes('todo') || 
+                    col.name.toLowerCase().includes('backlog')
+                  );
+                  
+                  if (todoColumn) {
+                    await github.rest.projects.createCard({
+                      column_id: todoColumn.id,
+                      content_id: issueNumber,
+                      content_type: 'Issue'
+                    });
+                    managementResults.projects.push(`📋 カード追加: ${project.name}`);
+                  }
+                } else {
+                  managementResults.projects.push(`ℹ️ プロジェクトボードが見つかりません`);
+                }
+              } catch (error) {
+                managementResults.projects.push(`❌ プロジェクト管理エラー: ${error.message}`);
+              }
+              
+              // 4. 🔒 セキュリティアラート対応
+              console.log('🔒 セキュリティチェックを実行中...');
+              
+              try {
+                if (triggerText.includes('セキュリティ') || triggerText.includes('security') || triggerText.includes('脆弱性')) {
+                  // セキュリティアラートの確認
+                  try {
+                    const vulnerabilities = await github.rest.secretScanning.listAlertsForRepo({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      state: 'open'
+                    });
+                    
+                    managementResults.security.push(`🔍 オープンなセキュリティアラート: ${vulnerabilities.data.length}件`);
+                    
+                    if (vulnerabilities.data.length > 0) {
+                      managementResults.security.push(`⚠️ セキュリティアラートの確認が必要です`);
+                    }
+                  } catch (error) {
+                    managementResults.security.push(`ℹ️ セキュリティアラート確認: アクセス制限または機能無効`);
+                  }
+                } else {
+                  managementResults.security.push(`ℹ️ セキュリティチェック: スキップ`);
+                }
+              } catch (error) {
+                managementResults.security.push(`❌ セキュリティチェックエラー: ${error.message}`);
+              }
+              
+              // 5. 📚 Wiki自動更新
+              console.log('📚 Wiki管理を実行中...');
+              
+              try {
+                if (triggerText.includes('wiki') || triggerText.includes('ドキュメント') || triggerText.includes('document')) {
+                  // Wikiページの存在確認
+                  try {
+                    const wikiPages = await github.rest.repos.get({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo
+                    });
+                    
+                    if (wikiPages.data.has_wiki) {
+                      managementResults.wiki.push(`📚 Wiki有効: 更新可能`);
+                      // 実際のWiki更新はClaude Codeで実行される
+                    } else {
+                      managementResults.wiki.push(`📚 Wiki無効: 設定で有効化が必要`);
+                    }
+                  } catch (error) {
+                    managementResults.wiki.push(`❌ Wiki確認エラー: ${error.message}`);
+                  }
+                } else {
+                  managementResults.wiki.push(`ℹ️ Wiki更新: スキップ`);
+                }
+              } catch (error) {
+                managementResults.wiki.push(`❌ Wiki管理エラー: ${error.message}`);
+              }
+              
+              // 6. 🌐 GitHub Pages管理
+              console.log('🌐 GitHub Pages管理を実行中...');
+              
+              try {
+                if (triggerText.includes('pages') || triggerText.includes('deploy') || triggerText.includes('サイト')) {
+                  try {
+                    const pages = await github.rest.repos.getPages({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo
+                    });
+                    
+                    managementResults.pages.push(`🌐 Pages有効: ${pages.data.html_url}`);
+                    
+                    // Pages build の実行
+                    await github.rest.repos.requestPagesBuild({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo
+                    });
+                    
+                    managementResults.pages.push(`🔄 Pages rebuild実行`);
+                  } catch (error) {
+                    if (error.status === 404) {
+                      managementResults.pages.push(`🌐 Pages無効: 設定で有効化が必要`);
+                    } else {
+                      managementResults.pages.push(`❌ Pages管理エラー: ${error.message}`);
+                    }
+                  }
+                } else {
+                  managementResults.pages.push(`ℹ️ Pages管理: スキップ`);
+                }
+              } catch (error) {
+                managementResults.pages.push(`❌ Pages管理エラー: ${error.message}`);
+              }
+              
+              // 7. ⚙️ Actions ワークフロー管理
+              console.log('⚙️ Actions管理を実行中...');
+              
+              try {
+                if (triggerText.includes('workflow') || triggerText.includes('action') || triggerText.includes('CI') || triggerText.includes('CD')) {
+                  const workflows = await github.rest.actions.listRepoWorkflows({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo
+                  });
+                  
+                  managementResults.actions.push(`⚙️ ワークフロー数: ${workflows.data.total_count}`);
+                  
+                  // 無効化されているワークフローの確認
+                  const disabledWorkflows = workflows.data.workflows.filter(w => w.state === 'disabled_manually');
+                  if (disabledWorkflows.length > 0) {
+                    managementResults.actions.push(`⚠️ 無効化ワークフロー: ${disabledWorkflows.length}件`);
+                  }
+                } else {
+                  managementResults.actions.push(`ℹ️ Actions管理: スキップ`);
+                }
+              } catch (error) {
+                managementResults.actions.push(`❌ Actions管理エラー: ${error.message}`);
+              }
+              
+              console.log('✅ 高度なリポジトリ管理完了');
+              
+              // 結果を出力に保存
+              core.setOutput('management-results', JSON.stringify(managementResults));
+              core.setOutput('management-success', 'true');
+              
+            } catch (error) {
+              console.error('❌ 高度なリポジトリ管理エラー:', error);
+              core.setOutput('management-error', error.message);
+              core.setOutput('management-success', 'false');
+            }
+        id: check-changes
+        if: steps.claude.outcome == 'success' && steps.context-info.outputs.is-pr == 'false'
+        run: |
+          echo "🔍 Claude Code実行後の変更をチェック"
+          
+          # Git 設定
+          git config --global user.name "Claude Code Bot"
+          git config --global user.email "claude-code-bot@github.com"
+          
+          # 変更ファイルの確認
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "変更なし: ブランチ作成をスキップ"
+            echo "has-changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "変更検出: ブランチ作成を実行"
+            echo "has-changes=true" >> $GITHUB_OUTPUT
+            
+            # 変更されたファイルリスト
+            echo "📄 変更されたファイル:"
+            git diff --name-only
+            git diff --cached --name-only
+            
+            # 変更統計
+            echo "📊 変更統計:"
+            git diff --stat
+            git diff --cached --stat
+          fi
+
+      - name: 自動ブランチ作成とPR作成
+        id: auto-pr
+        if: steps.check-changes.outputs.has-changes == 'true' && steps.context-info.outputs.is-pr == 'false'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issueNumber = ${{ steps.context-info.outputs.issue-number }};
+            const timestamp = new Date().toISOString().slice(0, 16).replace(/[-:]/g, '');
+            const branchName = `claude-fix/issue-${issueNumber}-${timestamp}`;
+            const defaultBranch = '${{ github.event.repository.default_branch }}';
+            
+            console.log(`🌿 ブランチ作成: ${branchName}`);
+            
+            try {
+              // 1. 新しいブランチ作成
+              const { data: ref } = await github.rest.git.getRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `heads/${defaultBranch}`
+              });
+              
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `refs/heads/${branchName}`,
+                sha: ref.object.sha
+              });
+              
+              console.log(`✅ ブランチ作成成功: ${branchName}`);
+              
+              // 2. 変更をこのブランチにコミット
+              const { execSync } = require('child_process');
+              
+              // ブランチチェックアウト
+              execSync(`git checkout -b ${branchName}`, { stdio: 'inherit' });
+              
+              // すべての変更をステージング
+              execSync('git add .', { stdio: 'inherit' });
+              
+              // コミットメッセージの生成
+              const commitMessage = `🤖 Claude Code: Issue ${String.fromCharCode(35)}${issueNumber} の自動修正
+
+Issue ${String.fromCharCode(35)}${issueNumber} への対応
+実行者: @${{ github.actor }}`;
+              
+              // コミット実行
+              execSync(`git commit -m "${commitMessage}"`, { stdio: 'inherit' });
+              
+              // ブランチをプッシュ
+              execSync(`git push origin ${branchName}`, { stdio: 'inherit' });
+              
+              console.log(`📤 ブランチプッシュ完了: ${branchName}`);
+              
+              // 3. Issue情報の取得
+              const { data: issue } = await github.rest.issues.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber
+              });
+              
+              // 4. PR作成
+              const prTitle = `🤖 Claude Code: ${issue.title}`;
+              const prBody = `## 🤖 Claude Code による自動修正
+
+**関連Issue:** ${String.fromCharCode(35)}${issueNumber}
+**実行者:** @${{ github.actor }}
+
+### 📋 元のIssue
+> ${issue.title}
+
+### ✅ 次のステップ
+1. 変更内容をレビュー
+2. テストが通ることを確認
+3. 問題なければマージ
+
+**追加修正が必要な場合:** この PR に \`@claude\` をメンション
+
+---
+*[Claude Code Workflow](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) による自動PR*`;
+
+              const { data: pr } = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: prTitle,
+                head: branchName,
+                base: defaultBranch,
+                body: prBody,
+                draft: false
+              });
+              
+              console.log(`🎉 PR作成成功: ${String.fromCharCode(35)}${pr.number}`);
+              
+              // 出力設定
+              core.setOutput('pr-number', pr.number);
+              core.setOutput('pr-url', pr.html_url);
+              core.setOutput('branch-name', branchName);
+              
+              // 元のIssueにPR作成通知
+              await github.rest.issues.createComment({
+                issue_number: issueNumber,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `🎉 **自動PR作成完了！**
+
+**📥 PR:** [${String.fromCharCode(35)}${pr.number}](${pr.html_url})
+**🌿 ブランチ:** \`${branchName}\`
+
+PRをレビュー後、問題なければマージしてください。
+追加修正が必要な場合は PR に \`@claude\` をメンションしてください。`
+              });
+              
+            } catch (error) {
+              console.error('❌ ブランチ・PR作成エラー:', error);
+              core.setOutput('error', error.message);
+              
+              // エラー通知
+              await github.rest.issues.createComment({
+                issue_number: issueNumber,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `❌ **自動PR作成失敗**
+
+**エラー:** \`${error.message}\`
+
+対処法: 手動でPR作成 or \`@claude\` で再実行
+詳細: [Actions実行ログ](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})`
+              });
+            }
+
+      - name: 成功時の通知
+        if: steps.claude.outcome == 'success' && steps.context-info.outputs.issue-number
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const isPR = '${{ steps.context-info.outputs.is-pr }}' === 'true';
+            const contextType = isPR ? 'Pull Request' : 'Issue';
+            const eventName = '${{ github.event_name }}';
+            const framework = '${{ steps.project-info.outputs.framework }}' || 'Unknown';
+            const totalFiles = '${{ steps.project-info.outputs.total-files }}' || '0';
+            const hasChanges = '${{ steps.check-changes.outputs.has-changes }}' === 'true';
+            const autoPrNumber = '${{ steps.auto-pr.outputs.pr-number }}';
+            const autoPrUrl = '${{ steps.auto-pr.outputs.pr-url }}';
+            const branchName = '${{ steps.auto-pr.outputs.branch-name }}';
+            const managementSuccess = '${{ steps.advanced-management.outputs.management-success }}' === 'true';
+            const managementResults = '${{ steps.advanced-management.outputs.management-results }}';
+            
+            const eventIcons = {
+              'pull_request_target': '🔀',
+              'issue_comment': '💬',
+              'issues': '📋',
+              'pull_request_review_comment': '📝',
+              'pull_request_review': '👀'
+            };
+            const icon = eventIcons[eventName] || '🤖';
+            const hashSymbol = String.fromCharCode(35);
+            
+            let message = `${icon} **Claude Code 実行完了**\n\n`;
+            
+            // 自動PR作成の結果
+            if (!isPR && hasChanges && autoPrNumber) {
+              message += `🎉 **自動PR作成成功！**\n`;
+              message += `- PR: [${hashSymbol}${autoPrNumber}](${autoPrUrl})\n`;
+              message += `- ブランチ: \`${branchName}\`\n`;
+              message += `- 次の手順: PRをレビュー → マージ\n\n`;
+            } else if (!isPR && !hasChanges) {
+              message += `ℹ️ **分析のみ実行** (コード変更なし)\n\n`;
+            }
+            
+            // 実行情報（コンパクト版）
+            message += `**📊 実行情報:** ${contextType} ${hashSymbol}${${{ steps.context-info.outputs.issue-number }}} | ${framework} (${totalFiles} files) | @${{ github.actor }}\n`;
+            if (isPR) {
+              message += `**🌿 ブランチ:** \`${{ steps.context-info.outputs.head-ref }}\` → \`${{ steps.context-info.outputs.base-ref }}\`\n`;
+            }
+            
+            // リポジトリ管理結果（要約版）
+            if (managementSuccess && managementResults) {
+              try {
+                const results = JSON.parse(managementResults);
+                const sections = ['labels', 'milestones', 'projects', 'security', 'wiki', 'pages', 'actions'];
+                const hasResults = sections.some(s => results[s] && results[s].length > 0);
+                
+                if (hasResults) {
+                  message += `\n**🚀 自動管理実行:**\n`;
+                  sections.forEach(section => {
+                    if (results[section] && results[section].length > 0) {
+                      const summary = results[section].filter(r => r.includes('✅') || r.includes('⚠️')).slice(0, 2);
+                      if (summary.length > 0) {
+                        message += `${summary.map(r => `- ${r}`).join('\n')}\n`;
+                      }
+                    }
+                  });
+                }
+              } catch (error) {
+                // エラー時は表示しない
+              }
+            }
+            
+            message += `\n---\n`;
+            message += `💡 **Claude への指示例:**\n\n`;
+            
+            // カテゴリ別の主要コマンド（簡潔版）
+            const commands = {
+              '🔍 分析・レビュー': [
+                'コードレビューをお願いします',
+                'セキュリティチェックしてください',
+                'パフォーマンス改善提案をお願いします'
+              ],
+              '🛠️ 作業・実装': [
+                'テストケースを追加してください',
+                'この問題を修正してPRを作成してください',
+                'リファクタリング提案をお願いします'
+              ],
+              '📚 管理・運用': [
+                'リリースを作成してください',
+                'セキュリティアラートを確認してください',
+                'ワークフローを最適化してください'
+              ]
+            };
+            
+            if (isPR) {
+              commands['🔀 PR特有'] = [
+                'マージ前の最終チェックをお願いします',
+                '破壊的変更がないか確認してください'
+              ];
+            } else {
+              commands['📋 Issue特有'] = [
+                'この問題の根本原因を調査してください',
+                '解決策を複数提案してください'
+              ];
+            }
+            
+            Object.entries(commands).forEach(([category, cmds]) => {
+              message += `**${category}:**\n`;
+              cmds.forEach(cmd => message += `- \`@claude ${cmd}\`\n`);
+              message += `\n`;
+            });
+            
+            message += `🔄 **再実行**: \`@claude [指示内容]\` でいつでも実行できます`;
+            
+            await github.rest.issues.createComment({
+              issue_number: ${{ steps.context-info.outputs.issue-number }},
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: message
+            });
+
+      - name: 失敗時の通知
+        if: steps.claude.outcome == 'failure' && steps.context-info.outputs.issue-number
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const isPR = '${{ steps.context-info.outputs.is-pr }}' === 'true';
+            const contextType = isPR ? 'Pull Request' : 'Issue';
+            const managementError = '${{ steps.advanced-management.outputs.management-error }}';
+            const hashSymbol = String.fromCharCode(35);
+            
+            let message = `❌ **Claude Code 実行失敗**\n\n`;
+            message += `${contextType} ${hashSymbol}${{ steps.context-info.outputs.issue-number }} の処理中にエラーが発生しました。\n\n`;
+            
+            // エラー情報（簡潔版）
+            message += `**📊 エラー情報:** ${contextType} | \`${{ github.event_name }}\` | @${{ github.actor }}\n`;
+            message += `**🔗 詳細ログ:** [Actions実行ログ](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\n`;
+            
+            if (managementError) {
+              message += `⚠️ **リポジトリ管理エラー:** \`${managementError}\`\n\n`;
+            }
+            
+            // 主な原因と対処法（箇条書きで簡潔に）
+            message += `**🤔 考えられる原因と対処法:**\n\n`;
+            
+            message += `**1. 一時的な問題** (最も一般的)\n`;
+            message += `- Claude API の一時的な制限\n`;
+            message += `- → **対処**: 5分後に \`@claude\` で再実行\n\n`;
+            
+            message += `**2. タイムアウト** (15分制限)\n`;
+            message += `- 処理が複雑すぎる可能性\n`;
+            message += `- → **対処**: より具体的な指示で分割実行\n\n`;
+            
+            message += `**3. 設定の問題**\n`;
+            message += `- トークンの期限切れ・設定ミス\n`;
+            message += `- → **対処**: Settings → Secrets → Actions で確認\n`;
+            message += `  - \`CLAUDE_ACCESS_TOKEN\`\n`;
+            message += `  - \`CLAUDE_REFRESH_TOKEN\`\n`;
+            message += `  - \`CLAUDE_EXPIRES_AT\`\n\n`;
+            
+            // 簡潔な再実行ガイド
+            message += `**💡 再実行のヒント:**\n`;
+            message += `- 具体的に: \`@claude src/components/Button.tsxをレビュー\`\n`;
+            message += `- 段階的に: まず1つのファイルから\n`;
+            message += `- 明確に: 期待する結果を伝える\n\n`;
+            
+            message += `---\n`;
+            message += `🔄 **再実行**: \`@claude [具体的な指示]\` で再度お試しください\n`;
+            message += `📞 **サポート**: 問題が続く場合は管理者へご連絡ください`;
+            
+            await github.rest.issues.createComment({
+              issue_number: ${{ steps.context-info.outputs.issue-number }},
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: message
+            });
+
+      - name: 実行ログの出力
+        if: always()
+        run: |
+          echo "📊 ===== 実行結果サマリー ====="
+          echo "Status: ${{ steps.claude.outcome }}"
+          echo "Context Type: ${{ steps.context-info.outputs.is-pr == 'true' && 'PR' || 'Issue' }}"
+          echo "Issue/PR: '#${{ steps.context-info.outputs.issue-number }}'"
+          echo "Branch: ${{ steps.context-info.outputs.head-ref || 'default' }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "Event: ${{ github.event_name }}"
+          echo "Project: ${{ steps.project-info.outputs.framework || 'Unknown' }}"
+          echo "Files: ${{ steps.project-info.outputs.total-files || '0' }}"
+          echo "Duration: ${{ steps.claude.outputs.duration || 'N/A' }}"
+          echo ""
+          echo "🔧 === 自動PR作成結果 ==="
+          echo "Has Changes: ${{ steps.check-changes.outputs.has-changes || 'N/A' }}"
+          echo "Auto PR Number: ${{ steps.auto-pr.outputs.pr-number || 'N/A' }}"
+          echo "Auto PR URL: ${{ steps.auto-pr.outputs.pr-url || 'N/A' }}"
+          echo "Branch Name: ${{ steps.auto-pr.outputs.branch-name || 'N/A' }}"
+          echo "Auto PR Error: ${{ steps.auto-pr.outputs.error || 'None' }}"
+          echo ""
+          echo "🚀 === 高度なリポジトリ管理結果 ==="
+          echo "Management Success: ${{ steps.advanced-management.outputs.management-success || 'N/A' }}"
+          echo "Management Error: ${{ steps.advanced-management.outputs.management-error || 'None' }}"
+          echo "Management Results Available: ${{ steps.advanced-management.outputs.management-results && 'Yes' || 'No' }}"
+          echo ""
+          echo "Timestamp: $(date -u)"
+          echo "=============================="
