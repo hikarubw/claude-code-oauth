@@ -61,6 +61,7 @@ install_local() {
             -o "$template_dir/claude.yml" 2>/dev/null
         curl -fsSL "https://raw.githubusercontent.com/$REPO/$BRANCH/templates/claude-api.yml" \
             -o "$template_dir/claude-api.yml" 2>/dev/null
+    fi
 }
 
 # Function to install remotely
