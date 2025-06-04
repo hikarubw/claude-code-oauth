@@ -11,7 +11,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 # Default install location
-INSTALL_DIR="/usr/local/bin"
+INSTALL_DIR="$HOME/.local/bin"
 TOOL_NAME="claude-oauth"
 
 echo -e "${RED}Claude OAuth CLI Uninstaller${NC}"
@@ -31,11 +31,13 @@ if [ ! -f "$TOOL_PATH" ]; then
     echo "Checking common locations..."
     
     # Check other common locations
-    for dir in /usr/local/bin /usr/bin ~/bin ~/.local/bin; do
-        if [ -f "$dir/$TOOL_NAME" ]; then
-            echo "Found at: $dir/$TOOL_NAME"
-            TOOL_PATH="$dir/$TOOL_NAME"
-            INSTALL_DIR="$dir"
+    for dir in ~/.local/bin ~/bin /usr/local/bin /usr/bin; do
+        # Expand the tilde
+        expanded_dir=$(eval echo "$dir")
+        if [ -f "$expanded_dir/$TOOL_NAME" ]; then
+            echo "Found at: $expanded_dir/$TOOL_NAME"
+            TOOL_PATH="$expanded_dir/$TOOL_NAME"
+            INSTALL_DIR="$expanded_dir"
             break
         fi
     done
@@ -65,13 +67,7 @@ fi
 
 # Remove the tool
 echo "Removing $TOOL_NAME..."
-
-if [ -w "$INSTALL_DIR" ]; then
-    rm -f "$TOOL_PATH"
-else
-    echo "Requesting sudo access to remove from $INSTALL_DIR..."
-    sudo rm -f "$TOOL_PATH"
-fi
+rm -f "$TOOL_PATH"
 
 # Remove template directory
 if [ -d "$HOME/.claude-oauth" ]; then

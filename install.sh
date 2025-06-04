@@ -14,7 +14,7 @@ NC='\033[0m'
 # Configuration
 REPO="hikarubw/claude-code-oauth"
 BRANCH="main"
-INSTALL_DIR="/usr/local/bin"
+INSTALL_DIR="$HOME/.local/bin"
 TOOL_NAME="claude-oauth"
 
 echo -e "${BLUE}Claude OAuth Installer${NC}"
@@ -38,15 +38,15 @@ install_local() {
     
     echo "Installing claude-oauth to $INSTALL_DIR..."
     
-    # Check if we need sudo
-    if [ -w "$INSTALL_DIR" ]; then
-        cp claude-oauth "$INSTALL_DIR/"
-        chmod +x "$INSTALL_DIR/claude-oauth"
-    else
-        echo "Requesting sudo access to install to $INSTALL_DIR..."
-        sudo cp claude-oauth "$INSTALL_DIR/"
-        sudo chmod +x "$INSTALL_DIR/claude-oauth"
+    # Create directory if it doesn't exist
+    if [ ! -d "$INSTALL_DIR" ]; then
+        echo "Creating directory: $INSTALL_DIR"
+        mkdir -p "$INSTALL_DIR"
     fi
+    
+    # Install the tool
+    cp claude-oauth "$INSTALL_DIR/"
+    chmod +x "$INSTALL_DIR/claude-oauth"
     
     # Also download the workflow templates
     echo "Downloading workflow templates..."
@@ -94,12 +94,13 @@ install_remote() {
     # Install to system
     echo "Installing to $INSTALL_DIR..."
     
-    if [ -w "$INSTALL_DIR" ]; then
-        mv "$TEMP_DIR/claude-oauth" "$INSTALL_DIR/"
-    else
-        echo "Requesting sudo access to install to $INSTALL_DIR..."
-        sudo mv "$TEMP_DIR/claude-oauth" "$INSTALL_DIR/"
+    # Create directory if it doesn't exist
+    if [ ! -d "$INSTALL_DIR" ]; then
+        echo "Creating directory: $INSTALL_DIR"
+        mkdir -p "$INSTALL_DIR"
     fi
+    
+    mv "$TEMP_DIR/claude-oauth" "$INSTALL_DIR/"
 }
 
 # Check for custom install directory
@@ -128,10 +129,16 @@ if command -v claude-oauth &> /dev/null; then
     echo "For help: claude-oauth help"
 else
     echo ""
-    echo -e "${YELLOW}Installation complete but claude-oauth not in PATH${NC}"
+    echo -e "${YELLOW}Installation complete!${NC}"
     echo ""
-    echo "Add $INSTALL_DIR to your PATH:"
-    echo "  export PATH=\"$INSTALL_DIR:\$PATH\""
+    echo "Claude OAuth CLI has been installed to: $INSTALL_DIR/claude-oauth"
+    echo ""
+    echo "To use claude-oauth, add this to your ~/.bashrc or ~/.zshrc:"
+    echo -e "${GREEN}export PATH=\"\$HOME/.local/bin:\$PATH\"${NC}"
+    echo ""
+    echo "Then reload your shell:"
+    echo "  source ~/.bashrc  # for bash"
+    echo "  source ~/.zshrc   # for zsh"
     echo ""
     echo "Or run directly: $INSTALL_DIR/claude-oauth"
 fi

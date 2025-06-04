@@ -41,8 +41,17 @@ cd claude-code-oauth
 
 ### Option 3: Custom Directory
 ```bash
-# Install to a custom directory
+# Install to a custom directory (e.g., ~/bin)
 curl -fsSL https://raw.githubusercontent.com/hikarubw/claude-code-oauth/main/install.sh | bash -s -- ~/bin
+```
+
+### Default Installation Location
+
+By default, the tool installs to `~/.local/bin` which is a safe user directory that doesn't require sudo permissions. Make sure this directory is in your PATH:
+
+```bash
+# Add to ~/.bashrc or ~/.zshrc
+export PATH="$HOME/.local/bin:$PATH"
 ```
 
 ## Usage
