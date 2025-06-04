@@ -1,6 +1,6 @@
 #!/bin/bash
-# Claude Code OAuth - Installer
-# Sets up OAuth tools for GitHub integration
+# Claude OAuth - Quick Installer
+# Downloads and sets up the claude-oauth CLI tool
 
 set -e
 
@@ -8,48 +8,125 @@ set -e
 BLUE='\033[0;34m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+RED='\033[0;31m'
 NC='\033[0m'
 
-echo -e "${BLUE}Claude Code OAuth Installer${NC}"
+# Configuration
+REPO="hikarubw/claude-code-oauth"
+BRANCH="main"
+INSTALL_DIR="/usr/local/bin"
+TOOL_NAME="claude-oauth"
+
+echo -e "${BLUE}Claude OAuth Installer${NC}"
 echo ""
 
-# Check if in git repo
-if [ ! -d ".git" ]; then
-    echo "Error: Not in a git repository"
-    echo "Please run from your project root"
-    exit 1
-fi
-
-# Create directories
-mkdir -p .claude/{tools,commands} .github/workflows
-
-# Download OAuth tool
-echo "Installing OAuth setup tool..."
-curl -fsSL "https://raw.githubusercontent.com/hikarubw/claude-code-oauth/main/tools/oauth-setup" \
-    -o ".claude/tools/oauth-setup" 2>/dev/null
-chmod +x .claude/tools/oauth-setup
-
-# Download command docs
-curl -fsSL "https://raw.githubusercontent.com/hikarubw/claude-code-oauth/main/commands/setup-oauth.md" \
-    -o ".claude/commands/setup-oauth.md" 2>/dev/null
-
-# Check if GitHub workflow exists
-if [ -f ".github/workflows/claude.yml" ]; then
-    echo -e "${YELLOW}GitHub workflow already exists${NC}"
+# Check if running with curl pipe
+if [ -t 0 ]; then
+    # Running directly
+    INSTALL_MODE="local"
 else
-    echo "Creating GitHub Action template..."
-    curl -fsSL "https://raw.githubusercontent.com/hikarubw/claude-code-oauth/main/templates/claude.yml" \
-        -o ".github/workflows/claude.yml" 2>/dev/null
+    # Running from curl pipe
+    INSTALL_MODE="remote"
 fi
 
-echo ""
-echo -e "${GREEN}✅ OAuth tools installed!${NC}"
-echo ""
-echo "Next steps:"
-echo "1. Run in Claude Code: /project:setup-oauth"
-echo "2. Follow the instructions to configure GitHub OAuth"
-echo ""
-echo "This will:"
-echo "- Store credentials securely"
-echo "- Set up GitHub Action"
-echo "- Configure repository secrets"
+# Function to install locally
+install_local() {
+    if [ ! -f "claude-oauth" ]; then
+        echo -e "${RED}Error: claude-oauth not found in current directory${NC}"
+        exit 1
+    fi
+    
+    echo "Installing claude-oauth to $INSTALL_DIR..."
+    
+    # Check if we need sudo
+    if [ -w "$INSTALL_DIR" ]; then
+        cp claude-oauth "$INSTALL_DIR/"
+        chmod +x "$INSTALL_DIR/claude-oauth"
+    else
+        echo "Requesting sudo access to install to $INSTALL_DIR..."
+        sudo cp claude-oauth "$INSTALL_DIR/"
+        sudo chmod +x "$INSTALL_DIR/claude-oauth"
+    fi
+    
+    # Also download the workflow template
+    echo "Downloading workflow template..."
+    local template_dir="$HOME/.claude-oauth"
+    mkdir -p "$template_dir"
+    
+    if [ -f "templates/claude.yml" ]; then
+        cp templates/claude.yml "$template_dir/claude.yml"
+    else
+        curl -fsSL "https://raw.githubusercontent.com/$REPO/$BRANCH/templates/claude.yml" \
+            -o "$template_dir/claude.yml" 2>/dev/null
+    fi
+}
+
+# Function to install remotely
+install_remote() {
+    echo "Downloading claude-oauth..."
+    
+    # Create temp directory
+    TEMP_DIR=$(mktemp -d)
+    trap "rm -rf $TEMP_DIR" EXIT
+    
+    # Download the tool
+    if ! curl -fsSL "https://raw.githubusercontent.com/$REPO/$BRANCH/claude-oauth" \
+        -o "$TEMP_DIR/claude-oauth" 2>/dev/null; then
+        echo -e "${RED}Failed to download claude-oauth${NC}"
+        exit 1
+    fi
+    
+    chmod +x "$TEMP_DIR/claude-oauth"
+    
+    # Download workflow template
+    echo "Downloading workflow template..."
+    local template_dir="$HOME/.claude-oauth"
+    mkdir -p "$template_dir"
+    
+    curl -fsSL "https://raw.githubusercontent.com/$REPO/$BRANCH/templates/claude.yml" \
+        -o "$template_dir/claude.yml" 2>/dev/null
+    
+    # Install to system
+    echo "Installing to $INSTALL_DIR..."
+    
+    if [ -w "$INSTALL_DIR" ]; then
+        mv "$TEMP_DIR/claude-oauth" "$INSTALL_DIR/"
+    else
+        echo "Requesting sudo access to install to $INSTALL_DIR..."
+        sudo mv "$TEMP_DIR/claude-oauth" "$INSTALL_DIR/"
+    fi
+}
+
+# Check for custom install directory
+if [ -n "$1" ]; then
+    INSTALL_DIR="$1"
+fi
+
+# Perform installation
+if [ "$INSTALL_MODE" = "local" ]; then
+    install_local
+else
+    install_remote
+fi
+
+# Verify installation
+if command -v claude-oauth &> /dev/null; then
+    echo ""
+    echo -e "${GREEN}✅ Installation successful!${NC}"
+    echo ""
+    echo "Claude OAuth CLI has been installed to: $INSTALL_DIR/claude-oauth"
+    echo ""
+    echo "To get started:"
+    echo "1. cd into your project directory"
+    echo "2. Run: claude-oauth setup"
+    echo ""
+    echo "For help: claude-oauth help"
+else
+    echo ""
+    echo -e "${YELLOW}Installation complete but claude-oauth not in PATH${NC}"
+    echo ""
+    echo "Add $INSTALL_DIR to your PATH:"
+    echo "  export PATH=\"$INSTALL_DIR:\$PATH\""
+    echo ""
+    echo "Or run directly: $INSTALL_DIR/claude-oauth"
+fi
