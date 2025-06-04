@@ -103,10 +103,10 @@ get_claude_credentials() {
 
 # Ask for auth type
 ask_auth_type() {
-    echo -e "${BLUE}Choose authentication method:${NC}"
-    echo "1) OAuth (recommended) - Uses your Claude login"
-    echo "2) API Key - Uses Anthropic API key"
-    echo ""
+    echo -e "${BLUE}Choose authentication method:${NC}" >&2
+    echo "1) OAuth (recommended) - Uses your Claude login" >&2
+    echo "2) API Key - Uses Anthropic API key" >&2
+    echo "" >&2
     
     while true; do
         read -p "Select (1-2): " choice
@@ -120,7 +120,7 @@ ask_auth_type() {
                 return
                 ;;
             *)
-                echo -e "${RED}Invalid selection. Please enter 1 or 2.${NC}"
+                echo -e "${RED}Invalid selection. Please enter 1 or 2.${NC}" >&2
                 ;;
         esac
     done
