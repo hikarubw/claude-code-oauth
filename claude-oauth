@@ -77,9 +77,17 @@ get_claude_credentials() {
         echo "Reading credentials from macOS Keychain..."
         
         local creds=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null || echo "{}")
-        ACCESS_TOKEN=$(echo "$creds" | jq -r '.access_token // empty')
-        REFRESH_TOKEN=$(echo "$creds" | jq -r '.refresh_token // empty')
-        EXPIRES_AT=$(echo "$creds" | jq -r '.expires_at // empty')
+        # Check for nested claudeAiOauth structure first
+        if echo "$creds" | jq -e '.claudeAiOauth' >/dev/null 2>&1; then
+            ACCESS_TOKEN=$(echo "$creds" | jq -r '.claudeAiOauth.accessToken // empty')
+            REFRESH_TOKEN=$(echo "$creds" | jq -r '.claudeAiOauth.refreshToken // empty')
+            EXPIRES_AT=$(echo "$creds" | jq -r '.claudeAiOauth.expiresAt // empty')
+        else
+            # Fallback to direct structure
+            ACCESS_TOKEN=$(echo "$creds" | jq -r '.access_token // empty')
+            REFRESH_TOKEN=$(echo "$creds" | jq -r '.refresh_token // empty')
+            EXPIRES_AT=$(echo "$creds" | jq -r '.expires_at // empty')
+        fi
     else
         # Linux - read from file
         local cred_file="$HOME/.claude/.credentials.json"
@@ -94,7 +102,7 @@ get_claude_credentials() {
     
     if [ -z "$ACCESS_TOKEN" ] || [ -z "$REFRESH_TOKEN" ]; then
         echo -e "${RED}Error: Claude credentials not found${NC}"
-        echo "Please run 'claude login' first"
+        echo "Please run 'claude /login' first"
         exit 1
     fi
     
