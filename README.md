@@ -1,16 +1,16 @@
-# Claude OAuth CLI
+# Claude Auth CLI
 
-> Simple OAuth setup tool for Claude Code GitHub integration
+> Simple authentication setup tool for Claude Code GitHub integration
 
-A streamlined CLI tool that configures OAuth authentication for Claude Code to interact with your GitHub repositories through Issues and Pull Requests.
+A streamlined CLI tool that configures authentication (OAuth or API Key) for Claude Code to interact with your GitHub repositories through Issues and Pull Requests.
 
 ## Features
 
-- 🔐 Secure OAuth authentication (no API keys)
+- 🔐 **Dual Authentication**: OAuth (recommended) or API Key
 - 🤖 Automated GitHub Actions setup
 - 💬 @claude mentions in Issues and PRs
-- 🔀 Auto-PR creation from Issues
-- 🏷️ Intelligent label and project management
+- 🔀 Auto-PR creation from Issues (OAuth only)
+- 🏷️ Intelligent label and project management (OAuth only)
 
 ## Quick Start
 
@@ -18,9 +18,9 @@ A streamlined CLI tool that configures OAuth authentication for Claude Code to i
 # Install the CLI tool
 curl -fsSL https://raw.githubusercontent.com/hikarubw/claude-code-oauth/main/install.sh | bash
 
-# Setup OAuth in your project
+# Setup authentication in your project
 cd your-project
-claude-oauth setup
+claude-oauth setup  # Interactive - choose OAuth or API Key
 
 # That's it! Claude will now respond to @claude mentions
 ```
@@ -47,34 +47,49 @@ curl -fsSL https://raw.githubusercontent.com/hikarubw/claude-code-oauth/main/ins
 
 ## Usage
 
-### Setup OAuth
+### Setup Authentication
 ```bash
-# Full setup (recommended)
+# Interactive setup (recommended)
 claude-oauth setup
+
+# OAuth setup (uses Claude login)
+claude-oauth setup --auth-type=oauth
+
+# API key setup (uses Anthropic API key)
+claude-oauth setup --auth-type=api
 
 # Just install the workflow
 claude-oauth install
+claude-oauth install --auth-type=api
 
 # Test your configuration
 claude-oauth test
 
-# Remove OAuth setup
+# Remove setup
 claude-oauth uninstall
 ```
 
-### How It Works
+### Authentication Methods
 
-1. **Reads Claude credentials** from your local machine (via `claude login`)
-2. **Configures GitHub secrets** automatically using GitHub CLI
-3. **Installs GitHub Action** that responds to @claude mentions
-4. **No manual configuration** required
+#### OAuth (Recommended)
+- Uses your existing `claude login` credentials
+- Supports advanced features (auto-PR, labels, projects)
+- Fully automated setup
+- No API key needed
+
+#### API Key
+- Uses Anthropic API key from console
+- Basic Claude Code features
+- Requires manual secret configuration
+- Simpler workflow file
 
 ## Requirements
 
 - Git repository
 - GitHub CLI (`gh`) authenticated
 - `jq` installed
-- Claude Code logged in (`claude login`)
+- For OAuth: Claude Code logged in (`claude login`)
+- For API Key: Anthropic API key
 
 ## Security
 
@@ -96,10 +111,12 @@ The installed GitHub Action includes:
 
 | Command | Description |
 |---------|-------------|
-| `claude-oauth setup` | Complete OAuth setup |
+| `claude-oauth setup` | Interactive authentication setup |
+| `claude-oauth setup --auth-type=oauth` | OAuth setup |
+| `claude-oauth setup --auth-type=api` | API key setup |
 | `claude-oauth install` | Install workflow only |
 | `claude-oauth test` | Verify configuration |
-| `claude-oauth uninstall` | Remove OAuth setup |
+| `claude-oauth uninstall` | Remove setup |
 | `claude-oauth help` | Show help message |
 
 ## Troubleshooting

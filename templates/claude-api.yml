@@ -211,8 +211,8 @@ jobs:
           echo "=================================="
           
           # Secretsの存在確認
-          if [ -z "${{ secrets.CLAUDE_ACCESS_TOKEN }}" ]; then
-            echo "::error::CLAUDE_ACCESS_TOKEN が設定されていません"
+          if [ -z "${{ secrets.ANTHROPIC_API_KEY }}" ]; then
+            echo "::error::ANTHROPIC_API_KEY が設定されていません"
             exit 1
           fi
           
@@ -292,14 +292,11 @@ jobs:
 
       - name: Claude Code実行
         id: claude
-        uses: hikarubw/claude-code-action@oauth
+        uses: anthropics/claude-code-action@beta
         timeout-minutes: 10
         continue-on-error: true
         with:
-          use_oauth: true
-          claude_access_token: ${{ secrets.CLAUDE_ACCESS_TOKEN }}
-          claude_refresh_token: ${{ secrets.CLAUDE_REFRESH_TOKEN }}
-          claude_expires_at: ${{ secrets.CLAUDE_EXPIRES_AT }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           # GITHUB ACTIONS (Maximum Freedom):
           allowed_tools: |
             Edit,View,Replace,Write,Create,
@@ -944,11 +941,9 @@ PRをレビュー後、問題なければマージしてください。
             message += `- → **対処**: より具体的な指示で分割実行\n\n`;
             
             message += `**3. 設定の問題**\n`;
-            message += `- トークンの期限切れ・設定ミス\n`;
+            message += `- APIキーの期限切れ・設定ミス\n`;
             message += `- → **対処**: Settings → Secrets → Actions で確認\n`;
-            message += `  - \`CLAUDE_ACCESS_TOKEN\`\n`;
-            message += `  - \`CLAUDE_REFRESH_TOKEN\`\n`;
-            message += `  - \`CLAUDE_EXPIRES_AT\`\n\n`;
+            message += `  - \`ANTHROPIC_API_KEY\`\n\n`;
             
             // 簡潔な再実行ガイド
             message += `**💡 再実行のヒント:**\n`;

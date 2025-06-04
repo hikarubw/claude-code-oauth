@@ -48,17 +48,19 @@ install_local() {
         sudo chmod +x "$INSTALL_DIR/claude-oauth"
     fi
     
-    # Also download the workflow template
-    echo "Downloading workflow template..."
+    # Also download the workflow templates
+    echo "Downloading workflow templates..."
     local template_dir="$HOME/.claude-oauth"
     mkdir -p "$template_dir"
     
     if [ -f "templates/claude.yml" ]; then
         cp templates/claude.yml "$template_dir/claude.yml"
+        cp templates/claude-api.yml "$template_dir/claude-api.yml" 2>/dev/null || true
     else
         curl -fsSL "https://raw.githubusercontent.com/$REPO/$BRANCH/templates/claude.yml" \
             -o "$template_dir/claude.yml" 2>/dev/null
-    fi
+        curl -fsSL "https://raw.githubusercontent.com/$REPO/$BRANCH/templates/claude-api.yml" \
+            -o "$template_dir/claude-api.yml" 2>/dev/null
 }
 
 # Function to install remotely
@@ -78,13 +80,15 @@ install_remote() {
     
     chmod +x "$TEMP_DIR/claude-oauth"
     
-    # Download workflow template
-    echo "Downloading workflow template..."
+    # Download workflow templates
+    echo "Downloading workflow templates..."
     local template_dir="$HOME/.claude-oauth"
     mkdir -p "$template_dir"
     
     curl -fsSL "https://raw.githubusercontent.com/$REPO/$BRANCH/templates/claude.yml" \
         -o "$template_dir/claude.yml" 2>/dev/null
+    curl -fsSL "https://raw.githubusercontent.com/$REPO/$BRANCH/templates/claude-api.yml" \
+        -o "$template_dir/claude-api.yml" 2>/dev/null
     
     # Install to system
     echo "Installing to $INSTALL_DIR..."

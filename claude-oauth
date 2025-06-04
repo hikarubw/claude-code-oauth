@@ -1,10 +1,10 @@
 #!/bin/bash
-# Claude OAuth - Unified CLI tool for Claude Code GitHub OAuth setup
+# Claude Auth - CLI tool for Claude Code GitHub authentication setup (OAuth or API Key)
 
 set -e
 
 # Version
-VERSION="2.0.0"
+VERSION="2.1.0"
 
 # Colors
 RED='\033[0;31m'
@@ -18,27 +18,27 @@ ACTION=""
 
 # Show help
 show_help() {
-    echo -e "${BLUE}Claude OAuth CLI v${VERSION}${NC}"
+    echo -e "${BLUE}Claude Auth CLI v${VERSION}${NC}"
     echo ""
-    echo "Setup OAuth authentication for Claude Code GitHub Actions"
+    echo "Setup authentication for Claude Code GitHub Actions"
     echo ""
     echo "Usage: claude-oauth [command] [options]"
     echo ""
     echo "Commands:"
-    echo "  setup        Configure OAuth for current repository"
+    echo "  setup        Configure authentication (OAuth or API key)"
     echo "  install      Install GitHub Action workflow"
-    echo "  uninstall    Remove OAuth configuration"
-    echo "  test         Verify OAuth setup"
+    echo "  uninstall    Remove authentication configuration"
+    echo "  test         Verify setup"
     echo "  help         Show this help message"
     echo ""
     echo "Options:"
     echo "  --version    Show version information"
-    echo "  --verbose    Enable verbose output"
+    echo "  --auth-type  Specify auth type: oauth or api (default: asks)"
     echo ""
     echo "Examples:"
-    echo "  claude-oauth setup       # Full OAuth setup"
-    echo "  claude-oauth install     # Just install workflow"
-    echo "  claude-oauth test        # Verify configuration"
+    echo "  claude-oauth setup                  # Interactive setup"
+    echo "  claude-oauth setup --auth-type=api  # API key setup"
+    echo "  claude-oauth setup --auth-type=oauth # OAuth setup"
 }
 
 # Check dependencies
@@ -101,19 +101,49 @@ get_claude_credentials() {
     echo -e "${GREEN}✓ Found Claude credentials${NC}"
 }
 
+# Ask for auth type
+ask_auth_type() {
+    echo -e "${BLUE}Choose authentication method:${NC}"
+    echo "1) OAuth (recommended) - Uses your Claude login"
+    echo "2) API Key - Uses Anthropic API key"
+    echo ""
+    read -p "Select (1-2): " -n 1 -r
+    echo ""
+    
+    case "$REPLY" in
+        1)
+            echo "oauth"
+            ;;
+        2)
+            echo "api"
+            ;;
+        *)
+            echo -e "${RED}Invalid selection${NC}"
+            exit 1
+            ;;
+    esac
+}
+
 # Install workflow
 install_workflow() {
-    echo -e "${BLUE}Installing Claude GitHub Action workflow...${NC}"
+    local auth_type="${1:-oauth}"
+    echo -e "${BLUE}Installing Claude GitHub Action workflow (${auth_type} mode)...${NC}"
     
     mkdir -p .github/workflows
-    
-    # Check for local template first
-    local template_file="$HOME/.claude-oauth/claude.yml"
     
     if [ -f ".github/workflows/claude.yml" ]; then
         echo -e "${YELLOW}Backing up existing workflow...${NC}"
         cp .github/workflows/claude.yml .github/workflows/claude.yml.bak
     fi
+    
+    # Determine template file
+    local template_name="claude.yml"
+    if [ "$auth_type" = "api" ]; then
+        template_name="claude-api.yml"
+    fi
+    
+    # Check for local template first
+    local template_file="$HOME/.claude-oauth/${template_name}"
     
     echo "Installing workflow template..."
     
@@ -125,7 +155,7 @@ install_workflow() {
     fi
     
     # Fall back to downloading
-    local workflow_url="https://raw.githubusercontent.com/hikarubw/claude-code-oauth/main/templates/claude.yml"
+    local workflow_url="https://raw.githubusercontent.com/hikarubw/claude-code-oauth/main/templates/${template_name}"
     echo "Downloading workflow template..."
     if curl -fsSL "$workflow_url" -o .github/workflows/claude.yml; then
         echo -e "${GREEN}✓ Workflow installed${NC}"
@@ -134,6 +164,53 @@ install_workflow() {
         echo -e "${RED}Failed to download workflow template${NC}"
         return 1
     fi
+}
+
+# Setup API Key
+setup_api_key() {
+    echo -e "${BLUE}Setting up Claude API Key authentication...${NC}"
+    echo ""
+    
+    # Check if in git repo
+    if [ ! -d ".git" ]; then
+        echo -e "${RED}Error: Not in a git repository${NC}"
+        exit 1
+    fi
+    
+    # Check GitHub CLI auth
+    if ! gh auth status &>/dev/null; then
+        echo -e "${RED}Error: GitHub CLI not authenticated${NC}"
+        echo "Run: gh auth login"
+        exit 1
+    fi
+    
+    # Install workflow
+    install_workflow "api"
+    
+    # Instructions for API key
+    echo ""
+    echo -e "${YELLOW}=== Manual Step Required ===${NC}"
+    echo ""
+    echo "You need to add your Anthropic API key to GitHub secrets:"
+    echo ""
+    echo "1. Get your API key from: https://console.anthropic.com/account/keys"
+    echo ""
+    echo "2. Add it to your repository:"
+    echo "   Option A - Using GitHub CLI:"
+    echo "   echo 'your-api-key-here' | gh secret set ANTHROPIC_API_KEY"
+    echo ""
+    echo "   Option B - Using GitHub web interface:"
+    echo "   - Go to: https://github.com/$(gh repo view --json nameWithOwner -q .nameWithOwner)/settings/secrets/actions"
+    echo "   - Click 'New repository secret'"
+    echo "   - Name: ANTHROPIC_API_KEY"
+    echo "   - Value: Your API key"
+    echo ""
+    echo "3. Commit and push the workflow:"
+    echo "   git add .github/workflows/claude.yml"
+    echo "   git commit -m 'Add Claude API workflow'"
+    echo "   git push"
+    echo ""
+    echo "Claude will respond to @claude mentions in Issues and PRs!"
 }
 
 # Setup OAuth
@@ -159,7 +236,7 @@ setup_oauth() {
     
     # Install workflow if not present
     if [ ! -f ".github/workflows/claude.yml" ]; then
-        install_workflow
+        install_workflow "oauth"
     fi
     
     # Set GitHub secrets
@@ -187,13 +264,38 @@ setup_oauth() {
     echo "Claude will respond to @claude mentions in Issues and PRs!"
 }
 
+# Main setup function
+setup() {
+    local auth_type="$1"
+    
+    # If no auth type specified, ask
+    if [ -z "$auth_type" ]; then
+        auth_type=$(ask_auth_type)
+    fi
+    
+    case "$auth_type" in
+        oauth)
+            setup_oauth
+            ;;
+        api)
+            setup_api_key
+            ;;
+        *)
+            echo -e "${RED}Invalid auth type: $auth_type${NC}"
+            echo "Valid options: oauth, api"
+            exit 1
+            ;;
+    esac
+}
+
 # Test configuration
 test_configuration() {
-    echo -e "${BLUE}Testing Claude OAuth configuration...${NC}"
+    echo -e "${BLUE}Testing Claude configuration...${NC}"
     echo ""
     
     local passed=0
     local failed=0
+    local auth_type=""
     
     # Test 1: Git repository
     echo -n "Git repository check... "
@@ -210,6 +312,13 @@ test_configuration() {
     if [ -f ".github/workflows/claude.yml" ]; then
         echo -e "${GREEN}PASS${NC}"
         ((passed++))
+        
+        # Detect auth type from workflow
+        if grep -q "ANTHROPIC_API_KEY" .github/workflows/claude.yml; then
+            auth_type="api"
+        elif grep -q "CLAUDE_ACCESS_TOKEN" .github/workflows/claude.yml; then
+            auth_type="oauth"
+        fi
     else
         echo -e "${RED}FAIL${NC}"
         ((failed++))
@@ -225,30 +334,47 @@ test_configuration() {
         ((failed++))
     fi
     
-    # Test 4: Secrets exist
+    # Test 4: Secrets exist (based on auth type)
     echo -n "GitHub secrets check... "
-    if gh secret list | grep -q "CLAUDE_ACCESS_TOKEN"; then
-        echo -e "${GREEN}PASS${NC}"
-        ((passed++))
+    if [ "$auth_type" = "api" ]; then
+        if gh secret list | grep -q "ANTHROPIC_API_KEY"; then
+            echo -e "${GREEN}PASS (API key)${NC}"
+            ((passed++))
+        else
+            echo -e "${RED}FAIL (ANTHROPIC_API_KEY not found)${NC}"
+            ((failed++))
+        fi
+    elif [ "$auth_type" = "oauth" ]; then
+        if gh secret list | grep -q "CLAUDE_ACCESS_TOKEN"; then
+            echo -e "${GREEN}PASS (OAuth)${NC}"
+            ((passed++))
+        else
+            echo -e "${RED}FAIL (OAuth tokens not found)${NC}"
+            ((failed++))
+        fi
     else
-        echo -e "${RED}FAIL${NC}"
-        ((failed++))
+        echo -e "${YELLOW}SKIP (unknown auth type)${NC}"
     fi
     
-    # Test 5: Claude credentials
-    echo -n "Claude credentials check... "
-    get_claude_credentials &>/dev/null
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}PASS${NC}"
-        ((passed++))
-    else
-        echo -e "${RED}FAIL${NC}"
-        ((failed++))
+    # Test 5: Claude credentials (only for OAuth)
+    if [ "$auth_type" = "oauth" ]; then
+        echo -n "Claude credentials check... "
+        get_claude_credentials &>/dev/null
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}PASS${NC}"
+            ((passed++))
+        else
+            echo -e "${RED}FAIL${NC}"
+            ((failed++))
+        fi
     fi
     
     # Summary
     echo ""
     echo "===================="
+    if [ -n "$auth_type" ]; then
+        echo "Auth type: $auth_type"
+    fi
     echo -e "Tests passed: ${GREEN}$passed${NC}"
     echo -e "Tests failed: ${RED}$failed${NC}"
     
@@ -263,15 +389,29 @@ test_configuration() {
 
 # Uninstall
 uninstall() {
-    echo -e "${YELLOW}Uninstalling Claude OAuth...${NC}"
+    echo -e "${YELLOW}Uninstalling Claude authentication...${NC}"
     echo ""
+    
+    # Detect auth type from workflow
+    local auth_type=""
+    if [ -f ".github/workflows/claude.yml" ]; then
+        if grep -q "ANTHROPIC_API_KEY" .github/workflows/claude.yml; then
+            auth_type="api"
+        elif grep -q "CLAUDE_ACCESS_TOKEN" .github/workflows/claude.yml; then
+            auth_type="oauth"
+        fi
+    fi
     
     # Remove secrets
     if gh auth status &>/dev/null; then
         echo "Removing GitHub secrets..."
-        gh secret delete CLAUDE_ACCESS_TOKEN 2>/dev/null || true
-        gh secret delete CLAUDE_REFRESH_TOKEN 2>/dev/null || true
-        gh secret delete CLAUDE_EXPIRES_AT 2>/dev/null || true
+        if [ "$auth_type" = "api" ]; then
+            gh secret delete ANTHROPIC_API_KEY 2>/dev/null || true
+        else
+            gh secret delete CLAUDE_ACCESS_TOKEN 2>/dev/null || true
+            gh secret delete CLAUDE_REFRESH_TOKEN 2>/dev/null || true
+            gh secret delete CLAUDE_EXPIRES_AT 2>/dev/null || true
+        fi
     fi
     
     # Remove workflow
@@ -291,13 +431,55 @@ uninstall() {
 
 # Main execution
 main() {
-    case "$1" in
+    # Parse arguments
+    local command=""
+    local auth_type=""
+    
+    for arg in "$@"; do
+        case "$arg" in
+            --auth-type=*)
+                auth_type="${arg#*=}"
+                ;;
+            --version)
+                echo "claude-oauth v${VERSION}"
+                exit 0
+                ;;
+            --help|-h)
+                show_help
+                exit 0
+                ;;
+            setup|install|test|uninstall|help)
+                command="$arg"
+                ;;
+            *)
+                if [ -z "$command" ]; then
+                    echo -e "${RED}Unknown command: $arg${NC}"
+                    echo "Run 'claude-oauth help' for usage"
+                    exit 1
+                fi
+                ;;
+        esac
+    done
+    
+    # Default to help if no command
+    if [ -z "$command" ]; then
+        command="help"
+    fi
+    
+    # Execute command
+    case "$command" in
         setup)
             check_dependencies
-            setup_oauth
+            setup "$auth_type"
             ;;
         install)
-            install_workflow
+            if [ -n "$auth_type" ]; then
+                install_workflow "$auth_type"
+            else
+                # Ask for auth type
+                auth_type=$(ask_auth_type)
+                install_workflow "$auth_type"
+            fi
             ;;
         test)
             test_configuration
@@ -305,16 +487,8 @@ main() {
         uninstall)
             uninstall
             ;;
-        --version)
-            echo "claude-oauth v${VERSION}"
-            ;;
-        help|--help|-h|"")
+        help)
             show_help
-            ;;
-        *)
-            echo -e "${RED}Unknown command: $1${NC}"
-            echo "Run 'claude-oauth help' for usage"
-            exit 1
             ;;
     esac
 }

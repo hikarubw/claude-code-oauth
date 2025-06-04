@@ -1,9 +1,29 @@
 # Changelog
 
-All notable changes to Claude OAuth CLI will be documented in this file.
+All notable changes to Claude Auth CLI will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [2.1.0] - 2024-03-06
+
+### Added
+- Dual authentication support: OAuth and API Key
+- Interactive auth type selection during setup
+- API key workflow template using `anthropics/claude-code-action@beta`
+- `--auth-type` parameter for non-interactive setup
+- Automatic auth type detection in test and uninstall commands
+
+### Changed
+- Renamed from "Claude OAuth CLI" to "Claude Auth CLI"
+- Updated help text to reflect dual auth support
+- Enhanced test command to detect and validate auth type
+- Installer now downloads both workflow templates
+
+### Improved
+- Clear instructions for API key setup with manual steps
+- Better error messages for auth type validation
+- Smarter uninstall that removes correct secrets based on auth type
 
 ## [2.0.0] - 2024-03-06
 

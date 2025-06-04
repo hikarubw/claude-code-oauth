@@ -13,6 +13,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ./claude-oauth help
 ./claude-oauth --version
 
+# Test authentication flows
+./claude-oauth setup --auth-type=oauth  # OAuth flow
+./claude-oauth setup --auth-type=api    # API key flow
+
 # Verify script syntax
 bash -n claude-oauth
 bash -n install.sh
@@ -32,6 +36,21 @@ bash -n uninstall.sh
 ```
 
 ## Architecture
+
+### Dual Authentication Support (v2.1.0)
+This tool supports both OAuth and API key authentication methods:
+
+1. **OAuth Authentication** (`templates/claude.yml`)
+   - Uses Claude login credentials from system storage
+   - 986-line advanced workflow with full permissions
+   - Supports auto-PR creation, labels, projects
+   - Fully automated secret configuration
+
+2. **API Key Authentication** (`templates/claude-api.yml`)
+   - Uses Anthropic API key
+   - Simplified 33-line workflow
+   - Basic Claude Code functionality
+   - Manual secret configuration required
 
 ### Simplified CLI Design (v2.0.0)
 This tool has been redesigned from a slash-command based system to a standard CLI tool:
@@ -74,8 +93,8 @@ This tool has been redesigned from a slash-command based system to a standard CL
 ## Version Management
 
 Version defined in two places that must stay synchronized:
-- `VERSION` file: `2.0.0`
-- `claude-oauth` script: `VERSION="2.0.0"`
+- `VERSION` file: `2.1.0`
+- `claude-oauth` script: `VERSION="2.1.0"`
 
 ## Design Decisions
 
