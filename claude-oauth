@@ -107,21 +107,23 @@ ask_auth_type() {
     echo "1) OAuth (recommended) - Uses your Claude login"
     echo "2) API Key - Uses Anthropic API key"
     echo ""
-    read -p "Select (1-2): " -n 1 -r
-    echo ""
     
-    case "$REPLY" in
-        1)
-            echo "oauth"
-            ;;
-        2)
-            echo "api"
-            ;;
-        *)
-            echo -e "${RED}Invalid selection${NC}"
-            exit 1
-            ;;
-    esac
+    while true; do
+        read -p "Select (1-2): " choice
+        case "$choice" in
+            1)
+                echo "oauth"
+                return
+                ;;
+            2)
+                echo "api"
+                return
+                ;;
+            *)
+                echo -e "${RED}Invalid selection. Please enter 1 or 2.${NC}"
+                ;;
+        esac
+    done
 }
 
 # Install workflow
