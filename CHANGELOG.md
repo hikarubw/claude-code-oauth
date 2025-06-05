@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Dual authentication support: OAuth and API Key
 - Interactive auth type selection during setup
-- API key workflow template using `anthropics/claude-code-action@beta`
+- API key workflow template using Anthropic's `claude-code-action@beta`
 - `--auth-type` parameter for non-interactive setup
 - Automatic auth type detection in test and uninstall commands
 
@@ -77,4 +77,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Intelligent label and milestone management
 - Auto-PR creation for issue fixes
 
+[2.1.0]: https://github.com/hikarubw/claude-code-oauth/releases/tag/v2.1.0
+[2.0.0]: https://github.com/hikarubw/claude-code-oauth/releases/tag/v2.0.0
 [1.0.0]: https://github.com/hikarubw/claude-code-oauth/releases/tag/v1.0.0

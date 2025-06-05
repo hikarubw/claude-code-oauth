@@ -49,11 +49,11 @@ run_test "claude-oauth syntax" "bash -n claude-oauth"
 run_test "installer syntax" "bash -n install.sh"
 
 # Version check
-run_test "version consistency" "grep -q '2.0.0' VERSION && grep -q 'VERSION=\"2.0.0\"' claude-oauth"
+run_test "version consistency" "grep -q '2.1.0' VERSION && grep -q 'VERSION=\"2.1.0\"' claude-oauth"
 
 # Command validation
-run_test "help command" "./claude-oauth help | grep -q 'Claude OAuth CLI'"
-run_test "version flag" "./claude-oauth --version | grep -q 'v2.0.0'"
+run_test "help command" "./claude-oauth help | grep -q 'Claude Auth CLI'"
+run_test "version flag" "./claude-oauth --version | grep -q 'v2.1.0'"
 
 # Dependency checks in script
 run_test "gh dependency check" "grep -q 'command -v gh' claude-oauth"
