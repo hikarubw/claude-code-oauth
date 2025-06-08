@@ -1,6 +1,6 @@
 #!/bin/bash
-# Claude OAuth - Quick Installer
-# Downloads and sets up the claude-oauth CLI tool
+# Claude Action Auth - Quick Installer
+# Downloads and sets up the claude-auth CLI tool
 
 set -e
 
@@ -12,12 +12,12 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 # Configuration
-REPO="hikarubw/claude-code-oauth"
+REPO="hikarubw/claude-action-auth"
 BRANCH="main"
 INSTALL_DIR="$HOME/.local/bin"
-TOOL_NAME="claude-oauth"
+TOOL_NAME="claude-auth"
 
-echo -e "${BLUE}Claude OAuth Installer${NC}"
+echo -e "${BLUE}Claude Action Auth Installer${NC}"
 echo ""
 
 # Check if running with curl pipe
@@ -31,12 +31,12 @@ fi
 
 # Function to install locally
 install_local() {
-    if [ ! -f "claude-oauth" ]; then
-        echo -e "${RED}Error: claude-oauth not found in current directory${NC}"
+    if [ ! -f "claude-auth" ]; then
+        echo -e "${RED}Error: claude-auth not found in current directory${NC}"
         exit 1
     fi
     
-    echo "Installing claude-oauth to $INSTALL_DIR..."
+    echo "Installing claude-auth to $INSTALL_DIR..."
     
     # Create directory if it doesn't exist
     if [ ! -d "$INSTALL_DIR" ]; then
@@ -45,12 +45,12 @@ install_local() {
     fi
     
     # Install the tool
-    cp claude-oauth "$INSTALL_DIR/"
-    chmod +x "$INSTALL_DIR/claude-oauth"
+    cp claude-auth "$INSTALL_DIR/"
+    chmod +x "$INSTALL_DIR/claude-auth"
     
     # Also download the workflow templates
     echo "Downloading workflow templates..."
-    local template_dir="$HOME/.claude-oauth"
+    local template_dir="$HOME/.claude-action-auth"
     mkdir -p "$template_dir"
     
     if [ -f "templates/claude.yml" ]; then
@@ -66,24 +66,24 @@ install_local() {
 
 # Function to install remotely
 install_remote() {
-    echo "Downloading claude-oauth..."
+    echo "Downloading claude-auth..."
     
     # Create temp directory
     TEMP_DIR=$(mktemp -d)
     trap "rm -rf $TEMP_DIR" EXIT
     
     # Download the tool
-    if ! curl -fsSL "https://raw.githubusercontent.com/$REPO/$BRANCH/claude-oauth" \
-        -o "$TEMP_DIR/claude-oauth" 2>/dev/null; then
-        echo -e "${RED}Failed to download claude-oauth${NC}"
+    if ! curl -fsSL "https://raw.githubusercontent.com/$REPO/$BRANCH/claude-auth" \
+        -o "$TEMP_DIR/claude-auth" 2>/dev/null; then
+        echo -e "${RED}Failed to download claude-auth${NC}"
         exit 1
     fi
     
-    chmod +x "$TEMP_DIR/claude-oauth"
+    chmod +x "$TEMP_DIR/claude-auth"
     
     # Download workflow templates
     echo "Downloading workflow templates..."
-    local template_dir="$HOME/.claude-oauth"
+    local template_dir="$HOME/.claude-action-auth"
     mkdir -p "$template_dir"
     
     curl -fsSL "https://raw.githubusercontent.com/$REPO/$BRANCH/templates/claude.yml" \
@@ -100,7 +100,7 @@ install_remote() {
         mkdir -p "$INSTALL_DIR"
     fi
     
-    mv "$TEMP_DIR/claude-oauth" "$INSTALL_DIR/"
+    mv "$TEMP_DIR/claude-auth" "$INSTALL_DIR/"
 }
 
 # Check for custom install directory
@@ -116,29 +116,29 @@ else
 fi
 
 # Verify installation
-if command -v claude-oauth &> /dev/null; then
+if command -v claude-auth &> /dev/null; then
     echo ""
     echo -e "${GREEN}✅ Installation successful!${NC}"
     echo ""
-    echo "Claude OAuth CLI has been installed to: $INSTALL_DIR/claude-oauth"
+    echo "Claude Action Auth has been installed to: $INSTALL_DIR/claude-auth"
     echo ""
     echo "To get started:"
     echo "1. cd into your project directory"
-    echo "2. Run: claude-oauth setup"
+    echo "2. Run: claude-auth setup"
     echo ""
-    echo "For help: claude-oauth help"
+    echo "For help: claude-auth help"
 else
     echo ""
     echo -e "${YELLOW}Installation complete!${NC}"
     echo ""
-    echo "Claude OAuth CLI has been installed to: $INSTALL_DIR/claude-oauth"
+    echo "Claude Action Auth has been installed to: $INSTALL_DIR/claude-auth"
     echo ""
-    echo "To use claude-oauth, add this to your ~/.bashrc or ~/.zshrc:"
+    echo "To use claude-auth, add this to your ~/.bashrc or ~/.zshrc:"
     echo -e "${GREEN}export PATH=\"\$HOME/.local/bin:\$PATH\"${NC}"
     echo ""
     echo "Then reload your shell:"
     echo "  source ~/.bashrc  # for bash"
     echo "  source ~/.zshrc   # for zsh"
     echo ""
-    echo "Or run directly: $INSTALL_DIR/claude-oauth"
+    echo "Or run directly: $INSTALL_DIR/claude-auth"
 fi

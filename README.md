@@ -1,8 +1,8 @@
-# Claude Auth CLI
+# Claude Action Auth
 
-> Simple authentication setup tool for Claude Code GitHub integration
+> Simple authentication setup tool for Claude Code Action on GitHub
 
-A streamlined CLI tool that configures authentication (OAuth or API Key) for Claude Code to interact with your GitHub repositories through Issues and Pull Requests.
+A streamlined CLI tool that configures authentication (OAuth or API Key) for Claude Code Action to interact with your GitHub repositories through Issues and Pull Requests.
 
 ## Features
 
@@ -16,11 +16,11 @@ A streamlined CLI tool that configures authentication (OAuth or API Key) for Cla
 
 ```bash
 # Install the CLI tool
-curl -fsSL https://raw.githubusercontent.com/hikarubw/claude-code-oauth/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/hikarubw/claude-action-auth/main/install.sh | bash
 
 # Setup authentication in your project
 cd your-project
-claude-oauth setup  # Interactive - choose OAuth or API Key
+claude-auth setup  # Interactive - choose OAuth or API Key
 
 # That's it! Claude will now respond to @claude mentions
 ```
@@ -29,20 +29,20 @@ claude-oauth setup  # Interactive - choose OAuth or API Key
 
 ### Option 1: Quick Install (Recommended)
 ```bash
-curl -fsSL https://raw.githubusercontent.com/hikarubw/claude-code-oauth/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/hikarubw/claude-action-auth/main/install.sh | bash
 ```
 
 ### Option 2: Manual Install
 ```bash
-git clone https://github.com/hikarubw/claude-code-oauth.git
-cd claude-code-oauth
+git clone https://github.com/hikarubw/claude-action-auth.git
+cd claude-action-auth
 ./install.sh
 ```
 
 ### Option 3: Custom Directory
 ```bash
 # Install to a custom directory (e.g., ~/bin)
-curl -fsSL https://raw.githubusercontent.com/hikarubw/claude-code-oauth/main/install.sh | bash -s -- ~/bin
+curl -fsSL https://raw.githubusercontent.com/hikarubw/claude-action-auth/main/install.sh | bash -s -- ~/bin
 ```
 
 ### Default Installation Location
@@ -59,23 +59,23 @@ export PATH="$HOME/.local/bin:$PATH"
 ### Setup Authentication
 ```bash
 # Interactive setup (recommended)
-claude-oauth setup
+claude-auth setup
 
 # OAuth setup (uses Claude login)
-claude-oauth setup --auth-type=oauth
+claude-auth setup --auth-type=oauth
 
 # API key setup (uses Anthropic API key)
-claude-oauth setup --auth-type=api
+claude-auth setup --auth-type=api
 
 # Just install the workflow
-claude-oauth install
-claude-oauth install --auth-type=api
+claude-auth install
+claude-auth install --auth-type=api
 
 # Test your configuration
-claude-oauth test
+claude-auth test
 
 # Remove setup
-claude-oauth uninstall
+claude-auth uninstall
 ```
 
 ### Authentication Methods
@@ -120,13 +120,13 @@ The installed GitHub Action includes:
 
 | Command | Description |
 |---------|-------------|
-| `claude-oauth setup` | Interactive authentication setup |
-| `claude-oauth setup --auth-type=oauth` | OAuth setup |
-| `claude-oauth setup --auth-type=api` | API key setup |
-| `claude-oauth install` | Install workflow only |
-| `claude-oauth test` | Verify configuration |
-| `claude-oauth uninstall` | Remove setup |
-| `claude-oauth help` | Show help message |
+| `claude-auth setup` | Interactive authentication setup |
+| `claude-auth setup --auth-type=oauth` | OAuth setup |
+| `claude-auth setup --auth-type=api` | API key setup |
+| `claude-auth install` | Install workflow only |
+| `claude-auth test` | Verify configuration |
+| `claude-auth uninstall` | Remove setup |
+| `claude-auth help` | Show help message |
 
 ## Troubleshooting
 

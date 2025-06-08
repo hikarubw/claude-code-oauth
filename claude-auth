@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Auth - CLI tool for Claude Code GitHub authentication setup (OAuth or API Key)
+# Claude Action Auth - CLI tool for Claude Code Action authentication setup (OAuth or API Key)
 
 set -e
 
@@ -18,11 +18,11 @@ ACTION=""
 
 # Show help
 show_help() {
-    echo -e "${BLUE}Claude Auth CLI v${VERSION}${NC}"
+    echo -e "${BLUE}Claude Action Auth v${VERSION}${NC}"
     echo ""
-    echo "Setup authentication for Claude Code GitHub Actions"
+    echo "Setup authentication for Claude Code Action on GitHub"
     echo ""
-    echo "Usage: claude-oauth [command] [options]"
+    echo "Usage: claude-auth [command] [options]"
     echo ""
     echo "Commands:"
     echo "  setup        Configure authentication (OAuth or API key)"
@@ -36,9 +36,9 @@ show_help() {
     echo "  --auth-type  Specify auth type: oauth or api (default: asks)"
     echo ""
     echo "Examples:"
-    echo "  claude-oauth setup                  # Interactive setup"
-    echo "  claude-oauth setup --auth-type=api  # API key setup"
-    echo "  claude-oauth setup --auth-type=oauth # OAuth setup"
+    echo "  claude-auth setup                   # Interactive setup"
+    echo "  claude-auth setup --auth-type=api   # API key setup"
+    echo "  claude-auth setup --auth-type=oauth  # OAuth setup"
 }
 
 # Check dependencies
@@ -153,7 +153,7 @@ install_workflow() {
     fi
     
     # Check for local template first
-    local template_file="$HOME/.claude-oauth/${template_name}"
+    local template_file="$HOME/.claude-action-auth/${template_name}"
     
     echo "Installing workflow template..."
     
@@ -451,7 +451,7 @@ main() {
                 auth_type="${arg#*=}"
                 ;;
             --version)
-                echo "claude-oauth v${VERSION}"
+                echo "claude-auth v${VERSION}"
                 exit 0
                 ;;
             --help|-h)
@@ -464,7 +464,7 @@ main() {
             *)
                 if [ -z "$command" ]; then
                     echo -e "${RED}Unknown command: $arg${NC}"
-                    echo "Run 'claude-oauth help' for usage"
+                    echo "Run 'claude-auth help' for usage"
                     exit 1
                 fi
                 ;;

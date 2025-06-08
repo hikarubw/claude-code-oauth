@@ -1,6 +1,6 @@
 #!/bin/bash
-# Claude OAuth CLI - Uninstaller
-# Removes the claude-oauth CLI tool
+# Claude Action Auth - Uninstaller
+# Removes the claude-auth CLI tool
 
 set -e
 
@@ -12,9 +12,9 @@ NC='\033[0m'
 
 # Default install location
 INSTALL_DIR="$HOME/.local/bin"
-TOOL_NAME="claude-oauth"
+TOOL_NAME="claude-auth"
 
-echo -e "${RED}Claude OAuth CLI Uninstaller${NC}"
+echo -e "${RED}Claude Action Auth Uninstaller${NC}"
 echo ""
 
 # Check for custom install directory
@@ -26,7 +26,7 @@ TOOL_PATH="$INSTALL_DIR/$TOOL_NAME"
 
 # Check if tool exists
 if [ ! -f "$TOOL_PATH" ]; then
-    echo "Claude OAuth CLI not found at: $TOOL_PATH"
+    echo "Claude Action Auth not found at: $TOOL_PATH"
     echo ""
     echo "Checking common locations..."
     
@@ -43,7 +43,7 @@ if [ ! -f "$TOOL_PATH" ]; then
     done
     
     if [ ! -f "$TOOL_PATH" ]; then
-        echo -e "${RED}Claude OAuth CLI not found in system${NC}"
+        echo -e "${RED}Claude Action Auth not found in system${NC}"
         exit 1
     fi
 fi
@@ -51,7 +51,7 @@ fi
 # Confirm uninstallation
 echo -e "${YELLOW}This will remove:${NC}"
 echo "- $TOOL_PATH"
-echo "- ~/.claude-oauth/ (template directory)"
+echo "- ~/.claude-action-auth/ (template directory)"
 echo ""
 echo "Note: This will NOT remove:"
 echo "- GitHub workflows in your projects"
@@ -70,15 +70,15 @@ echo "Removing $TOOL_NAME..."
 rm -f "$TOOL_PATH"
 
 # Remove template directory
-if [ -d "$HOME/.claude-oauth" ]; then
+if [ -d "$HOME/.claude-action-auth" ]; then
     echo "Removing template directory..."
-    rm -rf "$HOME/.claude-oauth"
+    rm -rf "$HOME/.claude-action-auth"
 fi
 
 echo ""
-echo -e "${GREEN}✅ Claude OAuth CLI uninstalled!${NC}"
+echo -e "${GREEN}✅ Claude Action Auth uninstalled!${NC}"
 echo ""
-echo "To remove OAuth from a project:"
+echo "To remove authentication from a project:"
 echo "1. cd into the project"
 echo "2. Delete .github/workflows/claude.yml"
 echo "3. Remove GitHub secrets:"

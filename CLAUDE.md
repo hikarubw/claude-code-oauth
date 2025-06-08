@@ -10,15 +10,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ./test.sh
 
 # Test the CLI locally
-./claude-oauth help
-./claude-oauth --version
+./claude-auth help
+./claude-auth --version
 
 # Test authentication flows
-./claude-oauth setup --auth-type=oauth  # OAuth flow
-./claude-oauth setup --auth-type=api    # API key flow
+./claude-auth setup --auth-type=oauth  # OAuth flow
+./claude-auth setup --auth-type=api    # API key flow
 
 # Verify script syntax
-bash -n claude-oauth
+bash -n claude-auth
 bash -n install.sh
 bash -n uninstall.sh
 ```
@@ -63,7 +63,7 @@ This tool has been redesigned from a slash-command based system to a standard CL
 2. **Installation Flow**
    - Remote: `curl | bash` downloads and installs to `/usr/local/bin`
    - Local: `./install.sh` detects local mode and copies files
-   - Template stored in `~/.claude-oauth/` for offline use
+   - Template stored in `~/.claude-action-auth/` for offline use
 
 3. **OAuth Configuration**
    - Reads credentials from Claude's standard locations:
@@ -74,7 +74,7 @@ This tool has been redesigned from a slash-command based system to a standard CL
 
 ### Key Components
 
-**claude-oauth**: Main CLI tool
+**claude-auth**: Main CLI tool
 - `setup`: Full OAuth configuration
 - `install`: Just workflow installation
 - `test`: Configuration verification
@@ -94,11 +94,11 @@ This tool has been redesigned from a slash-command based system to a standard CL
 
 Version defined in two places that must stay synchronized:
 - `VERSION` file: `2.1.0`
-- `claude-oauth` script: `VERSION="2.1.0"`
+- `claude-auth` script: `VERSION="2.1.0"`
 
 ## Design Decisions
 
 1. **No Slash Commands**: Removed `.claude/commands/` structure for simplicity
 2. **System Installation**: Uses standard `/usr/local/bin` instead of project-specific installation
 3. **Template Caching**: Stores workflow template locally for offline use
-4. **Unified Tool**: Single `claude-oauth` command instead of multiple scripts
+4. **Unified Tool**: Single `claude-auth` command instead of multiple scripts

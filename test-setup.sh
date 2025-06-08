@@ -1,5 +1,5 @@
 #!/bin/bash
-# Script to set up a test repository for Claude OAuth
+# Script to set up a test repository for Claude Action Auth
 
 set -e
 
@@ -9,12 +9,12 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo -e "${BLUE}Claude OAuth Test Setup${NC}"
+echo -e "${BLUE}Claude Action Auth Test Setup${NC}"
 echo "======================="
 echo ""
 
 # Check if test repo name provided
-REPO_NAME="${1:-test-claude-oauth-demo}"
+REPO_NAME="${1:-test-claude-action-auth-demo}"
 TEST_DIR="../$REPO_NAME"
 
 # Create test repository
@@ -29,18 +29,18 @@ git init
 # Add test files if they don't exist
 if [ ! -f "README.md" ]; then
     cat > README.md << 'EOF'
-# Test Claude OAuth Demo
+# Test Claude Action Auth Demo
 
-This is a test repository to verify Claude Code OAuth integration.
+This is a test repository to verify Claude Code Action authentication integration.
 
 ## Purpose
-- Test OAuth setup with claude-oauth tool
+- Test authentication setup with claude-auth tool
 - Verify GitHub Action triggers on @claude mentions
 - Test auto-PR creation from issues
 
 ## Test Plan
-1. Install claude-oauth tool
-2. Run OAuth setup
+1. Install claude-auth tool
+2. Run authentication setup
 3. Create test issue
 4. Add @claude comment
 5. Verify Claude Code responds
@@ -78,28 +78,28 @@ fi
 # Initial commit
 echo "3. Creating initial commit..."
 git add .
-git commit -m "Initial commit: test repository for Claude OAuth"
+git commit -m "Initial commit: test repository for Claude Action Auth"
 
 # Create GitHub repository
 echo ""
 echo -e "${YELLOW}4. Creating GitHub repository...${NC}"
 gh repo create "$REPO_NAME" --private --source=. --remote=origin --push
 
-# Install claude-oauth
+# Install claude-auth
 echo ""
-echo "5. Installing claude-oauth tool..."
-if command -v claude-oauth &> /dev/null; then
-    echo -e "${GREEN}✓ claude-oauth already installed${NC}"
+echo "5. Installing claude-auth tool..."
+if command -v claude-auth &> /dev/null; then
+    echo -e "${GREEN}✓ claude-auth already installed${NC}"
 else
     echo "Installing from remote..."
-    curl -fsSL https://raw.githubusercontent.com/hikarubw/claude-code-oauth/main/install.sh | bash
+    curl -fsSL https://raw.githubusercontent.com/hikarubw/claude-action-auth/main/install.sh | bash
 fi
 
-# Run OAuth setup
+# Run authentication setup
 echo ""
-echo "6. Running OAuth setup..."
+echo "6. Running authentication setup..."
 echo -e "${YELLOW}Select option 1 (OAuth) when prompted${NC}"
-claude-oauth setup
+claude-auth setup
 
 # Instructions for testing
 echo ""
