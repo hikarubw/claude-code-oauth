@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Complete redesign: Removed slash command dependency
-- Created unified `claude-oauth` CLI tool
+- Created unified `claude-auth` CLI tool
 - Simplified installation to standard CLI pattern
 - Direct execution without Claude Code requirement
 - System-wide installation to /usr/local/bin
@@ -77,6 +77,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Intelligent label and milestone management
 - Auto-PR creation for issue fixes
 
-[2.1.0]: https://github.com/hikarubw/claude-code-oauth/releases/tag/v2.1.0
-[2.0.0]: https://github.com/hikarubw/claude-code-oauth/releases/tag/v2.0.0
-[1.0.0]: https://github.com/hikarubw/claude-code-oauth/releases/tag/v1.0.0
+[2.1.0]: https://github.com/hikarubw/claude-action-auth/releases/tag/v2.1.0
+[2.0.0]: https://github.com/hikarubw/claude-action-auth/releases/tag/v2.0.0
+[1.0.0]: https://github.com/hikarubw/claude-action-auth/releases/tag/v1.0.0

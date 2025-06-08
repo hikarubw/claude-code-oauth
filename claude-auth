@@ -165,7 +165,7 @@ install_workflow() {
     fi
     
     # Fall back to downloading
-    local workflow_url="https://raw.githubusercontent.com/hikarubw/claude-code-oauth/main/templates/${template_name}"
+    local workflow_url="https://raw.githubusercontent.com/hikarubw/claude-action-auth/main/templates/${template_name}"
     echo "Downloading workflow template..."
     if curl -fsSL "$workflow_url" -o .github/workflows/claude.yml; then
         echo -e "${GREEN}✓ Workflow installed${NC}"

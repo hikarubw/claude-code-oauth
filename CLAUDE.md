@@ -55,7 +55,7 @@ This tool supports both OAuth and API key authentication methods:
 ### Simplified CLI Design (v2.0.0)
 This tool has been redesigned from a slash-command based system to a standard CLI tool:
 
-1. **Single Binary Approach** (`claude-oauth`)
+1. **Single Binary Approach** (`claude-auth`)
    - Self-contained CLI with subcommands
    - No dependency on Claude Code for execution
    - Standard Unix tool patterns

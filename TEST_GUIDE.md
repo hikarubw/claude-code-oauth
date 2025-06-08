@@ -6,14 +6,14 @@ This guide walks through testing the Claude OAuth integration.
 - GitHub CLI (`gh`) installed and authenticated
 - `jq` installed
 - Claude Code logged in (`claude login`)
-- claude-oauth tool installed
+- claude-auth tool installed
 
 ## Step 1: Create Test Repository
 
 ```bash
 # Create a new directory for testing
-mkdir test-claude-oauth-demo
-cd test-claude-oauth-demo
+mkdir test-claude-action-auth-demo
+cd test-claude-action-auth-demo
 
 # Initialize git
 git init
@@ -27,21 +27,21 @@ git add .
 git commit -m "Initial commit"
 
 # Create GitHub repo (private recommended for testing)
-gh repo create test-claude-oauth-demo --private --source=. --remote=origin --push
+gh repo create test-claude-action-auth-demo --private --source=. --remote=origin --push
 ```
 
 ## Step 2: Install Claude OAuth Tool
 
 If not already installed:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/hikarubw/claude-code-oauth/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/hikarubw/claude-action-auth/main/install.sh | bash
 ```
 
 ## Step 3: Setup OAuth
 
 ```bash
 # Run setup (choose option 1 for OAuth)
-claude-oauth setup
+claude-auth setup
 
 # This will:
 # 1. Install the GitHub Action workflow
@@ -104,7 +104,7 @@ git push
 
 ### Authentication errors
 1. Ensure `claude login` was successful
-2. Check OAuth tokens: `claude-oauth test`
+2. Check OAuth tokens: `claude-auth test`
 3. Verify GitHub CLI auth: `gh auth status`
 
 ### Workflow fails
@@ -112,21 +112,21 @@ git push
 2. Common issues:
    - Expired OAuth tokens (run `claude login` again)
    - Missing permissions (check repository settings)
-   - Workflow syntax errors (re-run `claude-oauth setup`)
+   - Workflow syntax errors (re-run `claude-auth setup`)
 
 ## Cleanup
 
 To remove the test repository:
 ```bash
 # Delete from GitHub
-gh repo delete test-claude-oauth-demo --yes
+gh repo delete test-claude-action-auth-demo --yes
 
 # Remove local directory
 cd ..
-rm -rf test-claude-oauth-demo
+rm -rf test-claude-action-auth-demo
 ```
 
 To uninstall Claude OAuth from a project:
 ```bash
-claude-oauth uninstall
+claude-auth uninstall
 ```
