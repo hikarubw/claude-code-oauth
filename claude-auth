@@ -263,9 +263,9 @@ setup_oauth() {
     echo "Configuring GitHub repository secrets..."
     local repo=$(gh repo view --json nameWithOwner -q .nameWithOwner)
     
-    echo "$ACCESS_TOKEN" | gh secret set CLAUDE_ACCESS_TOKEN
-    echo "$REFRESH_TOKEN" | gh secret set CLAUDE_REFRESH_TOKEN
-    echo "$EXPIRES_AT" | gh secret set CLAUDE_EXPIRES_AT
+    echo "$ACCESS_TOKEN" | gh secret set CLAUDE_ACCESS_TOKEN --repo "$repo"
+    echo "$REFRESH_TOKEN" | gh secret set CLAUDE_REFRESH_TOKEN --repo "$repo"
+    echo "$EXPIRES_AT" | gh secret set CLAUDE_EXPIRES_AT --repo "$repo"
     
     echo -e "${GREEN}✓ Secrets configured${NC}"
     
@@ -355,24 +355,29 @@ test_configuration() {
     
     # Test 4: Secrets exist (based on auth type)
     echo -n "GitHub secrets check... "
-    if [ "$auth_type" = "api" ]; then
-        if gh secret list | grep -q "ANTHROPIC_API_KEY"; then
-            echo -e "${GREEN}PASS (API key)${NC}"
-            ((passed++))
+    local repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)
+    if [ -n "$repo" ]; then
+        if [ "$auth_type" = "api" ]; then
+            if gh secret list --repo "$repo" | grep -q "ANTHROPIC_API_KEY"; then
+                echo -e "${GREEN}PASS (API key)${NC}"
+                ((passed++))
+            else
+                echo -e "${RED}FAIL (ANTHROPIC_API_KEY not found)${NC}"
+                ((failed++))
+            fi
+        elif [ "$auth_type" = "oauth" ]; then
+            if gh secret list --repo "$repo" | grep -q "CLAUDE_ACCESS_TOKEN"; then
+                echo -e "${GREEN}PASS (OAuth)${NC}"
+                ((passed++))
+            else
+                echo -e "${RED}FAIL (OAuth tokens not found)${NC}"
+                ((failed++))
+            fi
         else
-            echo -e "${RED}FAIL (ANTHROPIC_API_KEY not found)${NC}"
-            ((failed++))
-        fi
-    elif [ "$auth_type" = "oauth" ]; then
-        if gh secret list | grep -q "CLAUDE_ACCESS_TOKEN"; then
-            echo -e "${GREEN}PASS (OAuth)${NC}"
-            ((passed++))
-        else
-            echo -e "${RED}FAIL (OAuth tokens not found)${NC}"
-            ((failed++))
+            echo -e "${YELLOW}SKIP (unknown auth type)${NC}"
         fi
     else
-        echo -e "${YELLOW}SKIP (unknown auth type)${NC}"
+        echo -e "${YELLOW}SKIP (could not determine repository)${NC}"
     fi
     
     # Test 5: Claude credentials (only for OAuth)
@@ -424,12 +429,17 @@ uninstall() {
     # Remove secrets
     if gh auth status &>/dev/null; then
         echo "Removing GitHub secrets..."
-        if [ "$auth_type" = "api" ]; then
-            gh secret delete ANTHROPIC_API_KEY 2>/dev/null || true
+        local repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)
+        if [ -n "$repo" ]; then
+            if [ "$auth_type" = "api" ]; then
+                gh secret delete ANTHROPIC_API_KEY --repo "$repo" 2>/dev/null || true
+            else
+                gh secret delete CLAUDE_ACCESS_TOKEN --repo "$repo" 2>/dev/null || true
+                gh secret delete CLAUDE_REFRESH_TOKEN --repo "$repo" 2>/dev/null || true
+                gh secret delete CLAUDE_EXPIRES_AT --repo "$repo" 2>/dev/null || true
+            fi
         else
-            gh secret delete CLAUDE_ACCESS_TOKEN 2>/dev/null || true
-            gh secret delete CLAUDE_REFRESH_TOKEN 2>/dev/null || true
-            gh secret delete CLAUDE_EXPIRES_AT 2>/dev/null || true
+            echo "Warning: Could not determine repository, skipping secret removal"
         fi
     fi
     
