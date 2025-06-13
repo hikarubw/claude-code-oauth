@@ -216,7 +216,7 @@ setup_api_key() {
     echo ""
     echo "2. Add it to your repository:"
     echo "   Option A - Using GitHub CLI:"
-    echo "   echo 'your-api-key-here' | gh secret set ANTHROPIC_API_KEY"
+    echo "   echo 'your-api-key-here' | gh secret set ANTHROPIC_API_KEY --repo \"$(gh repo view --json nameWithOwner -q .nameWithOwner)\""
     echo ""
     echo "   Option B - Using GitHub web interface:"
     echo "   - Go to: https://github.com/$(gh repo view --json nameWithOwner -q .nameWithOwner)/settings/secrets/actions"
@@ -254,8 +254,12 @@ setup_oauth() {
     get_claude_credentials
     
     # Install workflow if not present
+    local workflow_installed=false
     if [ ! -f ".github/workflows/claude.yml" ]; then
         install_workflow "oauth"
+        workflow_installed=true
+    else
+        echo -e "${YELLOW}Workflow already exists, skipping installation${NC}"
     fi
     
     # Set GitHub secrets
@@ -273,12 +277,17 @@ setup_oauth() {
     echo ""
     echo -e "${GREEN}=== OAuth Setup Complete! ===${NC}"
     echo ""
-    echo "Next steps:"
-    echo "1. Review .github/workflows/claude.yml"
-    echo "2. Commit and push changes:"
-    echo "   git add .github/workflows/claude.yml"
-    echo "   git commit -m 'Add Claude OAuth workflow'"
-    echo "   git push"
+    if [ "$workflow_installed" = true ]; then
+        echo "Next steps:"
+        echo "1. Review .github/workflows/claude.yml"
+        echo "2. Commit and push changes:"
+        echo "   git add .github/workflows/claude.yml"
+        echo "   git commit -m 'Add Claude OAuth workflow'"
+        echo "   git push"
+    else
+        echo "✓ Secrets have been updated for the existing workflow"
+        echo "✓ No file changes needed"
+    fi
     echo ""
     echo "Claude will respond to @claude mentions in Issues and PRs!"
 }
