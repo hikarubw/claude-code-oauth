@@ -94,9 +94,18 @@ get_claude_credentials() {
         echo "Reading credentials from $cred_file..."
         
         if [ -f "$cred_file" ]; then
-            ACCESS_TOKEN=$(jq -r '.access_token // empty' "$cred_file")
-            REFRESH_TOKEN=$(jq -r '.refresh_token // empty' "$cred_file")
-            EXPIRES_AT=$(jq -r '.expires_at // empty' "$cred_file")
+            local creds=$(cat "$cred_file")
+            # Check for nested claudeAiOauth structure first
+            if echo "$creds" | jq -e '.claudeAiOauth' >/dev/null 2>&1; then
+                ACCESS_TOKEN=$(echo "$creds" | jq -r '.claudeAiOauth.accessToken // empty')
+                REFRESH_TOKEN=$(echo "$creds" | jq -r '.claudeAiOauth.refreshToken // empty')
+                EXPIRES_AT=$(echo "$creds" | jq -r '.claudeAiOauth.expiresAt // empty')
+            else
+                # Fallback to direct structure
+                ACCESS_TOKEN=$(echo "$creds" | jq -r '.access_token // empty')
+                REFRESH_TOKEN=$(echo "$creds" | jq -r '.refresh_token // empty')
+                EXPIRES_AT=$(echo "$creds" | jq -r '.expires_at // empty')
+            fi
         fi
     fi
     
