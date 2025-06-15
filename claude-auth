@@ -222,32 +222,37 @@ list_templates() {
     echo ""
 }
 
-# Ask for template selection
-ask_template() {
+# Show template list
+show_template_list() {
     local auth_type="${1:-}"
     
-    # Show available templates (redirect to stderr so they appear to user)
-    echo "" >&2
-    echo -e "${BLUE}Available workflow templates:${NC}" >&2
-    echo "" >&2
+    # Show available templates
+    echo ""
+    echo -e "${BLUE}Available workflow templates:${NC}"
+    echo ""
     
     # Use simple default list for reliability
-    echo "1) claude.yml - Basic Claude workflow (recommended)" >&2
-    echo "2) claude-auto-review.yml - Automatic code review on PRs" >&2
-    echo "3) claude-pr-path-specific.yml - Path-specific PR review" >&2
-    echo "4) claude-review-from-author.yml - Author-initiated review" >&2
+    echo "1) claude.yml - Basic Claude workflow (recommended)"
+    echo "2) claude-auto-review.yml - Automatic code review on PRs"
+    echo "3) claude-pr-path-specific.yml - Path-specific PR review"
+    echo "4) claude-review-from-author.yml - Author-initiated review"
     
     # Add advanced templates
     if [ -f "$HOME/.claude-action-auth/claude-advanced.yml" ]; then
-        echo "" >&2
-        echo "Advanced templates:" >&2
-        echo "A) claude-advanced.yml - Advanced workflow with full permissions (OAuth only)" >&2
+        echo ""
+        echo "Advanced templates:"
+        echo "A) claude-advanced.yml - Advanced workflow with full permissions (OAuth only)"
     fi
     if [ -f "$HOME/.claude-action-auth/claude-advanced-api.yml" ]; then
-        echo "B) claude-advanced-api.yml - Advanced workflow for API key authentication" >&2
+        echo "B) claude-advanced-api.yml - Advanced workflow for API key authentication"
     fi
     
-    echo "" >&2
+    echo ""
+}
+
+# Get template selection from user
+get_template_selection() {
+    local auth_type="${1:-}"
     
     # Default templates array
     local templates_array=("claude.yml" "claude-auto-review.yml" "claude-pr-path-specific.yml" "claude-review-from-author.yml")
@@ -301,7 +306,10 @@ install_workflow() {
     
     # If no template specified, ask user
     if [ -z "$template" ]; then
-        template=$(ask_template "$auth_type")
+        # Show template list first
+        show_template_list "$auth_type"
+        # Then get selection
+        template=$(get_template_selection "$auth_type")
     fi
     
     # Special handling for advanced templates
