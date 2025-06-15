@@ -226,31 +226,31 @@ list_templates() {
 ask_template() {
     local auth_type="${1:-}"
     
-    # Get list of templates
-    local api_url=""
-    if [ "$auth_type" = "oauth" ]; then
-        api_url="https://api.github.com/repos/hikarubw/claude-code-action/contents/examples?ref=oauth"
-    else
-        api_url="https://api.github.com/repos/anthropics/claude-code-action/contents/examples?ref=beta"
+    # Show available templates
+    echo ""
+    echo -e "${BLUE}Available workflow templates:${NC}"
+    echo ""
+    
+    # Use simple default list for reliability
+    echo "1) claude.yml - Basic Claude workflow (recommended)"
+    echo "2) claude-auto-review.yml - Automatic code review on PRs"
+    echo "3) claude-pr-path-specific.yml - Path-specific PR review"
+    echo "4) claude-review-from-author.yml - Author-initiated review"
+    
+    # Add advanced templates
+    if [ -f "$HOME/.claude-action-auth/claude-advanced.yml" ]; then
+        echo ""
+        echo "Advanced templates:"
+        echo "A) claude-advanced.yml - Advanced workflow with full permissions (OAuth only)"
+    fi
+    if [ -f "$HOME/.claude-action-auth/claude-advanced-api.yml" ]; then
+        echo "B) claude-advanced-api.yml - Advanced workflow for API key authentication"
     fi
     
-    # Show the templates first
-    list_templates "$auth_type"
+    echo ""
     
-    # Fetch templates into an array
-    local templates_json=$(curl -s "$api_url" 2>/dev/null)
-    local templates_array=()
-    
-    if [ -n "$templates_json" ] && [ "$templates_json" != "null" ]; then
-        while IFS= read -r template; do
-            templates_array+=("$template")
-        done < <(echo "$templates_json" | jq -r '.[] | select(.name | endswith(".yml")) | .name')
-    fi
-    
-    # If no templates fetched, use defaults
-    if [ ${#templates_array[@]} -eq 0 ]; then
-        templates_array=("claude.yml" "claude-auto-review.yml" "claude-pr-path-specific.yml" "claude-review-from-author.yml")
-    fi
+    # Default templates array
+    local templates_array=("claude.yml" "claude-auto-review.yml" "claude-pr-path-specific.yml" "claude-review-from-author.yml")
     
     while true; do
         read -p "Select template: " choice
