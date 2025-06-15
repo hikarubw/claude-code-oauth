@@ -633,6 +633,8 @@ jobs:
               core.setOutput('management-error', error.message);
               core.setOutput('management-success', 'false');
             }
+
+      - name: 変更チェック
         id: check-changes
         if: steps.claude.outcome == 'success' && steps.context-info.outputs.is-pr == 'false'
         run: |
@@ -702,10 +704,7 @@ jobs:
               execSync('git add .', { stdio: 'inherit' });
               
               // コミットメッセージの生成
-              const commitMessage = `🤖 Claude Code: Issue ${String.fromCharCode(35)}${issueNumber} の自動修正
-
-Issue ${String.fromCharCode(35)}${issueNumber} への対応
-実行者: @${{ github.actor }}`;
+              const commitMessage = `🤖 Claude Code: Issue ${String.fromCharCode(35)}${issueNumber} の自動修正\n\nIssue ${String.fromCharCode(35)}${issueNumber} への対応\n実行者: @${{ github.actor }}`;
               
               // コミット実行
               execSync(`git commit -m "${commitMessage}"`, { stdio: 'inherit' });
