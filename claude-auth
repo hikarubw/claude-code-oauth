@@ -226,28 +226,28 @@ list_templates() {
 ask_template() {
     local auth_type="${1:-}"
     
-    # Show available templates
-    echo ""
-    echo -e "${BLUE}Available workflow templates:${NC}"
-    echo ""
+    # Show available templates (redirect to stderr so they appear to user)
+    echo "" >&2
+    echo -e "${BLUE}Available workflow templates:${NC}" >&2
+    echo "" >&2
     
     # Use simple default list for reliability
-    echo "1) claude.yml - Basic Claude workflow (recommended)"
-    echo "2) claude-auto-review.yml - Automatic code review on PRs"
-    echo "3) claude-pr-path-specific.yml - Path-specific PR review"
-    echo "4) claude-review-from-author.yml - Author-initiated review"
+    echo "1) claude.yml - Basic Claude workflow (recommended)" >&2
+    echo "2) claude-auto-review.yml - Automatic code review on PRs" >&2
+    echo "3) claude-pr-path-specific.yml - Path-specific PR review" >&2
+    echo "4) claude-review-from-author.yml - Author-initiated review" >&2
     
     # Add advanced templates
     if [ -f "$HOME/.claude-action-auth/claude-advanced.yml" ]; then
-        echo ""
-        echo "Advanced templates:"
-        echo "A) claude-advanced.yml - Advanced workflow with full permissions (OAuth only)"
+        echo "" >&2
+        echo "Advanced templates:" >&2
+        echo "A) claude-advanced.yml - Advanced workflow with full permissions (OAuth only)" >&2
     fi
     if [ -f "$HOME/.claude-action-auth/claude-advanced-api.yml" ]; then
-        echo "B) claude-advanced-api.yml - Advanced workflow for API key authentication"
+        echo "B) claude-advanced-api.yml - Advanced workflow for API key authentication" >&2
     fi
     
-    echo ""
+    echo "" >&2
     
     # Default templates array
     local templates_array=("claude.yml" "claude-auto-review.yml" "claude-pr-path-specific.yml" "claude-review-from-author.yml")
