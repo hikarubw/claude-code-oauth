@@ -226,25 +226,57 @@ list_templates() {
 show_template_list() {
     local auth_type="${1:-}"
     
-    # Show available templates
     echo ""
-    echo -e "${BLUE}Available workflow templates:${NC}"
+    echo -e "${BLUE}Fetching available workflow templates...${NC}"
     echo ""
     
-    # Use simple default list for reliability
-    echo "1) claude.yml - Basic Claude workflow (recommended)"
-    echo "2) claude-auto-review.yml - Automatic code review on PRs"
-    echo "3) claude-pr-path-specific.yml - Path-specific PR review"
-    echo "4) claude-review-from-author.yml - Author-initiated review"
-    
-    # Add advanced templates
-    if [ -f "$HOME/.claude-action-auth/claude-advanced.yml" ]; then
-        echo ""
-        echo "Advanced templates:"
-        echo "A) claude-advanced.yml - Advanced workflow with full permissions (OAuth only)"
+    # Determine which repository to fetch from
+    local api_url=""
+    if [ "$auth_type" = "oauth" ]; then
+        api_url="https://api.github.com/repos/hikarubw/claude-code-action/contents/examples?ref=oauth"
+    else
+        api_url="https://api.github.com/repos/anthropics/claude-code-action/contents/examples?ref=beta"
     fi
-    if [ -f "$HOME/.claude-action-auth/claude-advanced-api.yml" ]; then
-        echo "B) claude-advanced-api.yml - Advanced workflow for API key authentication"
+    
+    # Fetch the list of templates
+    local templates=$(curl -s "$api_url" | jq -r '.[] | select(.name | endswith(".yml")) | .name' 2>/dev/null)
+    
+    if [ -z "$templates" ]; then
+        echo -e "${YELLOW}Unable to fetch templates from repository. Using default list:${NC}"
+        echo ""
+        echo "1) claude.yml - Basic Claude workflow (recommended)"
+        echo "2) claude-auto-review.yml - Automatic code review on PRs"
+        echo "3) claude-pr-path-specific.yml - Path-specific PR review"
+        echo "4) claude-review-from-author.yml - Author-initiated review"
+    else
+        echo -e "${GREEN}Available templates from repository:${NC}"
+        echo ""
+        local i=1
+        echo "$templates" | while read -r template; do
+            # Add description for known templates
+            local desc=""
+            case "$template" in
+                "claude.yml") desc=" - Basic Claude workflow (recommended)" ;;
+                "claude-auto-review.yml") desc=" - Automatic code review on PRs" ;;
+                "claude-pr-path-specific.yml") desc=" - Path-specific PR review" ;;
+                "claude-review-from-author.yml") desc=" - Author-initiated review" ;;
+                *) desc="" ;;
+            esac
+            echo "$i) $template$desc"
+            ((i++))
+        done
+    fi
+    
+    # Add local advanced templates if they exist
+    if [ -f "$HOME/.claude-action-auth/claude-advanced.yml" ] || [ -f "$HOME/.claude-action-auth/claude-advanced-api.yml" ]; then
+        echo ""
+        echo -e "${BLUE}Local advanced templates:${NC}"
+        if [ -f "$HOME/.claude-action-auth/claude-advanced.yml" ]; then
+            echo "A) claude-advanced.yml - Advanced workflow with full permissions (OAuth only)"
+        fi
+        if [ -f "$HOME/.claude-action-auth/claude-advanced-api.yml" ]; then
+            echo "B) claude-advanced-api.yml - Advanced workflow for API key authentication"
+        fi
     fi
     
     echo ""
@@ -254,8 +286,28 @@ show_template_list() {
 get_template_selection() {
     local auth_type="${1:-}"
     
-    # Default templates array
-    local templates_array=("claude.yml" "claude-auto-review.yml" "claude-pr-path-specific.yml" "claude-review-from-author.yml")
+    # Determine which repository to fetch from
+    local api_url=""
+    if [ "$auth_type" = "oauth" ]; then
+        api_url="https://api.github.com/repos/hikarubw/claude-code-action/contents/examples?ref=oauth"
+    else
+        api_url="https://api.github.com/repos/anthropics/claude-code-action/contents/examples?ref=beta"
+    fi
+    
+    # Fetch templates into an array
+    local templates_array=()
+    local templates_json=$(curl -s "$api_url" 2>/dev/null)
+    
+    if [ -n "$templates_json" ] && [ "$templates_json" != "null" ] && echo "$templates_json" | jq -e . >/dev/null 2>&1; then
+        while IFS= read -r template; do
+            templates_array+=("$template")
+        done < <(echo "$templates_json" | jq -r '.[] | select(.name | endswith(".yml")) | .name')
+    fi
+    
+    # If no templates fetched, use defaults
+    if [ ${#templates_array[@]} -eq 0 ]; then
+        templates_array=("claude.yml" "claude-auto-review.yml" "claude-pr-path-specific.yml" "claude-review-from-author.yml")
+    fi
     
     while true; do
         read -p "Select template: " choice
