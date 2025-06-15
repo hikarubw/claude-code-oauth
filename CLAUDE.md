@@ -13,9 +13,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ./claude-auth help
 ./claude-auth --version
 
-# Test authentication flows
-./claude-auth setup --auth-type=oauth  # OAuth flow
-./claude-auth setup --auth-type=api    # API key flow
+# Test init command (recommended)
+./claude-auth init                      # Interactive setup
+./claude-auth init --oauth              # OAuth setup
+./claude-auth init --api-key            # API key setup
+
+# Test individual commands
+./claude-auth setup --auth-type=oauth   # OAuth flow only
+./claude-auth setup --auth-type=api     # API key flow only
+./claude-auth install                   # Workflow install only
 
 # Verify script syntax
 bash -n claude-auth
@@ -75,8 +81,9 @@ This tool has been redesigned from a slash-command based system to a standard CL
 ### Key Components
 
 **claude-auth**: Main CLI tool
-- `setup`: Full OAuth configuration
-- `install`: Just workflow installation
+- `init`: Quick setup (auth + workflow) - **recommended**
+- `setup`: Authentication configuration only
+- `install`: Workflow installation only
 - `test`: Configuration verification
 - `uninstall`: Clean removal
 

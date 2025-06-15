@@ -25,23 +25,29 @@ show_help() {
     echo "Usage: claude-auth [command] [options]"
     echo ""
     echo "Commands:"
-    echo "  setup        Configure authentication (OAuth or API key)"
-    echo "  install      Install GitHub Action workflow"
-    echo "  uninstall    Remove authentication configuration"
+    echo "  init         Configure auth and install workflow (recommended)"
+    echo "  setup        Configure authentication only"
+    echo "  install      Install workflow only"
     echo "  test         Verify setup"
+    echo "  uninstall    Remove configuration"
     echo "  help         Show this help message"
     echo ""
     echo "Options:"
     echo "  --version    Show version information"
-    echo "  --auth-type  Specify auth type: oauth or api (default: asks)"
-    echo "  --template   Specify workflow template (for install command)"
+    echo "  --oauth      Use OAuth authentication"
+    echo "  --api-key    Use API key authentication"
+    echo "  --auth-type  Specify auth type: oauth or api (legacy)"
+    echo "  --template   Specify workflow template"
     echo ""
-    echo "Examples:"
-    echo "  claude-auth setup                   # Interactive setup"
-    echo "  claude-auth setup --auth-type=api   # API key setup"
-    echo "  claude-auth setup --auth-type=oauth  # OAuth setup"
-    echo "  claude-auth install                 # Install workflow (interactive)"
-    echo "  claude-auth install --template=claude-auto-review.yml"
+    echo "Quick Start:"
+    echo "  claude-auth init                    # Interactive setup (recommended)"
+    echo "  claude-auth init --oauth            # OAuth with default workflow"
+    echo "  claude-auth init --api-key          # API key with default workflow"
+    echo ""
+    echo "Advanced Examples:"
+    echo "  claude-auth init --oauth --template=claude-auto-review.yml"
+    echo "  claude-auth setup --auth-type=oauth # Just configure auth"
+    echo "  claude-auth install --template=claude.yml # Just install workflow"
 }
 
 # Check dependencies
@@ -566,6 +572,82 @@ test_configuration() {
     fi
 }
 
+# Init command - combines setup and install
+init() {
+    local auth_type="$1"
+    local template="$2"
+    
+    echo -e "${BLUE}Claude Auth Init - Setting up Claude Code Action${NC}"
+    echo ""
+    
+    # Check if already configured
+    local has_oauth=false
+    local has_api=false
+    
+    if gh auth status &>/dev/null; then
+        if gh secret list 2>/dev/null | grep -q "CLAUDE_ACCESS_TOKEN"; then
+            has_oauth=true
+        fi
+        if gh secret list 2>/dev/null | grep -q "ANTHROPIC_API_KEY"; then
+            has_api=true
+        fi
+    fi
+    
+    # If already configured, ask if they want to reconfigure
+    if [ "$has_oauth" = true ] || [ "$has_api" = true ]; then
+        echo -e "${YELLOW}Authentication already configured.${NC}"
+        echo -n "Do you want to reconfigure? (y/N): "
+        read -r response
+        if [[ ! "$response" =~ ^[Yy]$ ]]; then
+            echo ""
+            echo "Proceeding to workflow installation..."
+            # Skip to workflow installation
+            install_workflow "$auth_type" "$template"
+            return
+        fi
+    fi
+    
+    # Run setup
+    echo ""
+    echo -e "${BLUE}Step 1/2: Configuring authentication...${NC}"
+    echo ""
+    setup "$auth_type"
+    
+    # Check if setup was successful
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}Setup failed. Please try again.${NC}"
+        return 1
+    fi
+    
+    # Determine auth type if not specified
+    if [ -z "$auth_type" ]; then
+        if gh secret list 2>/dev/null | grep -q "CLAUDE_ACCESS_TOKEN"; then
+            auth_type="oauth"
+        elif gh secret list 2>/dev/null | grep -q "ANTHROPIC_API_KEY"; then
+            auth_type="api"
+        fi
+    fi
+    
+    # Run install
+    echo ""
+    echo -e "${BLUE}Step 2/2: Installing workflow...${NC}"
+    echo ""
+    install_workflow "$auth_type" "$template"
+    
+    if [ $? -eq 0 ]; then
+        echo ""
+        echo -e "${GREEN}✅ Claude Code Action setup complete!${NC}"
+        echo ""
+        echo "Claude will now respond to @claude mentions in your Issues and PRs."
+        echo ""
+        echo "Next steps:"
+        echo "1. Commit and push the workflow file"
+        echo "2. Create an issue or PR and mention @claude"
+        echo ""
+        echo "Example: '@claude please review this code'"
+    fi
+}
+
 # Uninstall
 uninstall() {
     echo -e "${YELLOW}Uninstalling Claude authentication...${NC}"
@@ -636,8 +718,14 @@ main() {
                 show_help
                 exit 0
                 ;;
-            setup|install|test|uninstall|help)
+            init|setup|install|test|uninstall|help)
                 command="$arg"
+                ;;
+            --oauth)
+                auth_type="oauth"
+                ;;
+            --api-key|--api)
+                auth_type="api"
                 ;;
             *)
                 if [ -z "$command" ]; then
@@ -656,6 +744,10 @@ main() {
     
     # Execute command
     case "$command" in
+        init)
+            check_dependencies
+            init "$auth_type" "$template"
+            ;;
         setup)
             check_dependencies
             setup "$auth_type"

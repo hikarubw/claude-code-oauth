@@ -20,10 +20,9 @@ A streamlined CLI tool that configures authentication (OAuth or API Key) for Cla
 # Install the CLI tool
 curl -fsSL https://raw.githubusercontent.com/hikarubw/claude-action-auth/main/install.sh | bash
 
-# Setup authentication in your project
+# Setup Claude in your project (one command!)
 cd your-project
-claude-auth setup   # Configure OAuth or API Key
-claude-auth install # Choose and install workflow
+claude-auth init
 
 # That's it! Claude will now respond to @claude mentions
 ```
@@ -59,44 +58,46 @@ export PATH="$HOME/.local/bin:$PATH"
 
 ## Usage
 
-### Setup Authentication
+### Quick Setup (Recommended)
 
-#### Step 1: Configure Authentication
 ```bash
-# Interactive setup (recommended)
-claude-auth setup
+# Interactive setup - configures auth and installs workflow
+claude-auth init
 
-# OAuth setup (uses Claude login)
-claude-auth setup --auth-type=oauth
+# OAuth setup with default workflow
+claude-auth init --oauth
 
-# API key setup (uses Anthropic API key)
-claude-auth setup --auth-type=api
+# API key setup with default workflow
+claude-auth init --api-key
+
+# OAuth with specific template
+claude-auth init --oauth --template=claude-auto-review.yml
 ```
 
-#### Step 2: Install Workflow
-```bash
-# Interactive template selection
-claude-auth install
+### Advanced Usage
 
-# Use specific template
+For more control, you can run setup and install separately:
+
+```bash
+# Step 1: Configure authentication only
+claude-auth setup --auth-type=oauth   # or --auth-type=api
+
+# Step 2: Install workflow only
 claude-auth install --template=claude-auto-review.yml
+
+# Other commands
+claude-auth test       # Verify configuration
+claude-auth uninstall  # Remove setup
 ```
 
-#### Available Templates:
+### Available Templates
+
 - `claude.yml` - Basic Claude workflow (recommended)
 - `claude-auto-review.yml` - Automatic code review on PRs
 - `claude-pr-path-specific.yml` - Path-specific PR review
 - `claude-review-from-author.yml` - Author-initiated review
 - `claude-advanced.yml` - Advanced workflow with full permissions (OAuth only)
-
-#### Other Commands
-```bash
-# Test your configuration
-claude-auth test
-
-# Remove setup
-claude-auth uninstall
-```
+- `claude-advanced-api.yml` - Advanced workflow for API key authentication
 
 ### Authentication Methods
 
@@ -141,14 +142,15 @@ The installed GitHub Action includes:
 
 | Command | Description |
 |---------|-------------|
-| `claude-auth setup` | Configure authentication (OAuth or API key) |
-| `claude-auth setup --auth-type=oauth` | OAuth setup |
-| `claude-auth setup --auth-type=api` | API key setup |
-| `claude-auth install` | Install workflow template (interactive) |
-| `claude-auth install --template=<name>` | Install specific workflow template |
+| `claude-auth init` | **Quick setup** - Configure auth & install workflow |
+| `claude-auth init --oauth` | Quick OAuth setup with default workflow |
+| `claude-auth init --api-key` | Quick API key setup with default workflow |
+| `claude-auth setup` | Configure authentication only |
+| `claude-auth install` | Install workflow template only |
 | `claude-auth test` | Verify configuration |
 | `claude-auth uninstall` | Remove setup |
 | `claude-auth help` | Show help message |
+| `claude-auth --version` | Show version |
 
 ## Troubleshooting
 

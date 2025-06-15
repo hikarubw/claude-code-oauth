@@ -55,6 +55,8 @@ run_test "version consistency" "grep -q '2.1.0' VERSION && grep -q 'VERSION=\"2.
 # Command validation
 run_test "help command" "./claude-auth help | grep -q 'Claude Action Auth'"
 run_test "version flag" "./claude-auth --version | grep -q 'v2.1.0'"
+run_test "init command in help" "./claude-auth help | grep -q 'init'"
+run_test "init shows in quick start" "./claude-auth help | grep -q 'Quick Start'"
 
 # Dependency checks in script
 run_test "gh dependency check" "grep -q 'command -v gh' claude-auth"
