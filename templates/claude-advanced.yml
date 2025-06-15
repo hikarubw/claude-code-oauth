@@ -726,23 +726,7 @@ jobs:
               
               // 4. PR作成
               const prTitle = `🤖 Claude Code: ${issue.title}`;
-              const prBody = `## 🤖 Claude Code による自動修正
-
-**関連Issue:** ${String.fromCharCode(35)}${issueNumber}
-**実行者:** @${{ github.actor }}
-
-### 📋 元のIssue
-> ${issue.title}
-
-### ✅ 次のステップ
-1. 変更内容をレビュー
-2. テストが通ることを確認
-3. 問題なければマージ
-
-**追加修正が必要な場合:** この PR に \`@claude\` をメンション
-
----
-*[Claude Code Workflow](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) による自動PR*`;
+              const prBody = `## 🤖 Claude Code による自動修正\n\n**関連Issue:** ${String.fromCharCode(35)}${issueNumber}\n**実行者:** @${{ github.actor }}\n\n### 📋 元のIssue\n> ${issue.title}\n\n### ✅ 次のステップ\n1. 変更内容をレビュー\n2. テストが通ることを確認\n3. 問題なければマージ\n\n**追加修正が必要な場合:** この PR に \\\`@claude\\\` をメンション\n\n---\n*[Claude Code Workflow](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) による自動PR*`;
 
               const { data: pr } = await github.rest.pulls.create({
                 owner: context.repo.owner,
@@ -766,13 +750,7 @@ jobs:
                 issue_number: issueNumber,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: `🎉 **自動PR作成完了！**
-
-**📥 PR:** [${String.fromCharCode(35)}${pr.number}](${pr.html_url})
-**🌿 ブランチ:** \`${branchName}\`
-
-PRをレビュー後、問題なければマージしてください。
-追加修正が必要な場合は PR に \`@claude\` をメンションしてください。`
+                body: `🎉 **自動PR作成完了！**\n\n**📥 PR:** [${String.fromCharCode(35)}${pr.number}](${pr.html_url})\n**🌿 ブランチ:** \\\`${branchName}\\\`\n\nPRをレビュー後、問題なければマージしてください。\n追加修正が必要な場合は PR に \\\`@claude\\\` をメンションしてください。`
               });
               
             } catch (error) {
@@ -784,12 +762,7 @@ PRをレビュー後、問題なければマージしてください。
                 issue_number: issueNumber,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: `❌ **自動PR作成失敗**
-
-**エラー:** \`${error.message}\`
-
-対処法: 手動でPR作成 or \`@claude\` で再実行
-詳細: [Actions実行ログ](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})`
+                body: `❌ **自動PR作成失敗**\n\n**エラー:** \\\`${error.message}\\\`\n\n対処法: 手動でPR作成 or \\\`@claude\\\` で再実行\n詳細: [Actions実行ログ](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})`
               });
             }
 
