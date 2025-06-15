@@ -53,14 +53,14 @@ install_local() {
     local template_dir="$HOME/.claude-action-auth"
     mkdir -p "$template_dir"
     
-    if [ -f "templates/claude.yml" ]; then
-        cp templates/claude.yml "$template_dir/claude.yml"
-        cp templates/claude-api.yml "$template_dir/claude-api.yml" 2>/dev/null || true
+    if [ -f "templates/claude-advanced.yml" ]; then
+        cp templates/claude-advanced.yml "$template_dir/claude-advanced.yml"
+        cp templates/claude-advanced-api.yml "$template_dir/claude-advanced-api.yml" 2>/dev/null || true
     else
-        curl -fsSL "https://raw.githubusercontent.com/$REPO/$BRANCH/templates/claude.yml" \
-            -o "$template_dir/claude.yml" 2>/dev/null
-        curl -fsSL "https://raw.githubusercontent.com/$REPO/$BRANCH/templates/claude-api.yml" \
-            -o "$template_dir/claude-api.yml" 2>/dev/null
+        curl -fsSL "https://raw.githubusercontent.com/$REPO/$BRANCH/templates/claude-advanced.yml" \
+            -o "$template_dir/claude-advanced.yml" 2>/dev/null
+        curl -fsSL "https://raw.githubusercontent.com/$REPO/$BRANCH/templates/claude-advanced-api.yml" \
+            -o "$template_dir/claude-advanced-api.yml" 2>/dev/null
     fi
 }
 
@@ -86,10 +86,10 @@ install_remote() {
     local template_dir="$HOME/.claude-action-auth"
     mkdir -p "$template_dir"
     
-    curl -fsSL "https://raw.githubusercontent.com/$REPO/$BRANCH/templates/claude.yml" \
-        -o "$template_dir/claude.yml" 2>/dev/null
-    curl -fsSL "https://raw.githubusercontent.com/$REPO/$BRANCH/templates/claude-api.yml" \
-        -o "$template_dir/claude-api.yml" 2>/dev/null
+    curl -fsSL "https://raw.githubusercontent.com/$REPO/$BRANCH/templates/claude-advanced.yml" \
+        -o "$template_dir/claude-advanced.yml" 2>/dev/null
+    curl -fsSL "https://raw.githubusercontent.com/$REPO/$BRANCH/templates/claude-advanced-api.yml" \
+        -o "$template_dir/claude-advanced-api.yml" 2>/dev/null
     
     # Install to system
     echo "Installing to $INSTALL_DIR..."

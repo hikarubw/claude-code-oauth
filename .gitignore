@@ -58,3 +58,6 @@ yarn-error.log*
 .env
 .env.local
 .env.*.local
+
+# Security scan results
+trivy-results.sarif

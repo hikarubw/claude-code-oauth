@@ -34,11 +34,14 @@ show_help() {
     echo "Options:"
     echo "  --version    Show version information"
     echo "  --auth-type  Specify auth type: oauth or api (default: asks)"
+    echo "  --template   Specify workflow template (for install command)"
     echo ""
     echo "Examples:"
     echo "  claude-auth setup                   # Interactive setup"
     echo "  claude-auth setup --auth-type=api   # API key setup"
     echo "  claude-auth setup --auth-type=oauth  # OAuth setup"
+    echo "  claude-auth install                 # Install workflow (interactive)"
+    echo "  claude-auth install --template=claude-auto-review.yml"
 }
 
 # Check dependencies
@@ -94,24 +97,46 @@ get_claude_credentials() {
         echo "Reading credentials from $cred_file..."
         
         if [ -f "$cred_file" ]; then
-            local creds=$(cat "$cred_file")
-            # Check for nested claudeAiOauth structure first
-            if echo "$creds" | jq -e '.claudeAiOauth' >/dev/null 2>&1; then
-                ACCESS_TOKEN=$(echo "$creds" | jq -r '.claudeAiOauth.accessToken // empty')
-                REFRESH_TOKEN=$(echo "$creds" | jq -r '.claudeAiOauth.refreshToken // empty')
-                EXPIRES_AT=$(echo "$creds" | jq -r '.claudeAiOauth.expiresAt // empty')
+            # Check if file is readable and valid JSON
+            if ! jq -e . "$cred_file" >/dev/null 2>&1; then
+                echo -e "${YELLOW}Warning: Credentials file exists but appears to be invalid JSON${NC}"
             else
-                # Fallback to direct structure
-                ACCESS_TOKEN=$(echo "$creds" | jq -r '.access_token // empty')
-                REFRESH_TOKEN=$(echo "$creds" | jq -r '.refresh_token // empty')
-                EXPIRES_AT=$(echo "$creds" | jq -r '.expires_at // empty')
+                local creds=$(cat "$cred_file")
+                # Check for nested claudeAiOauth structure first
+                if echo "$creds" | jq -e '.claudeAiOauth' >/dev/null 2>&1; then
+                    ACCESS_TOKEN=$(echo "$creds" | jq -r '.claudeAiOauth.accessToken // empty')
+                    REFRESH_TOKEN=$(echo "$creds" | jq -r '.claudeAiOauth.refreshToken // empty')
+                    EXPIRES_AT=$(echo "$creds" | jq -r '.claudeAiOauth.expiresAt // empty')
+                else
+                    # Fallback to direct structure
+                    ACCESS_TOKEN=$(echo "$creds" | jq -r '.access_token // empty')
+                    REFRESH_TOKEN=$(echo "$creds" | jq -r '.refresh_token // empty')
+                    EXPIRES_AT=$(echo "$creds" | jq -r '.expires_at // empty')
+                fi
             fi
         fi
     fi
     
     if [ -z "$ACCESS_TOKEN" ] || [ -z "$REFRESH_TOKEN" ]; then
         echo -e "${RED}Error: Claude credentials not found${NC}"
-        echo "Please run 'claude /login' first"
+        echo ""
+        
+        # Check if claude command is available
+        if ! command -v claude &> /dev/null; then
+            echo -e "${YELLOW}Warning: 'claude' command not found${NC}"
+            echo "Please install Claude Code first: https://claude.ai/code"
+            echo ""
+        fi
+        
+        echo "Please login to Claude first:"
+        echo "1. Run 'claude' to start interactive mode"
+        echo "2. Use '/login' command to authenticate"
+        echo ""
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            echo "Expected location: macOS Keychain (Claude Code-credentials)"
+        else
+            echo "Expected location: ~/.claude/.credentials.json"
+        fi
         exit 1
     fi
     
@@ -143,10 +168,123 @@ ask_auth_type() {
     done
 }
 
+# List available templates
+list_templates() {
+    local auth_type="${1:-}"
+    echo -e "${BLUE}Fetching available workflow templates...${NC}"
+    echo ""
+    
+    # Determine which repository to fetch from
+    local api_url=""
+    if [ "$auth_type" = "oauth" ]; then
+        api_url="https://api.github.com/repos/hikarubw/claude-code-action/contents/examples?ref=oauth"
+    else
+        api_url="https://api.github.com/repos/anthropics/claude-code-action/contents/examples?ref=beta"
+    fi
+    
+    # Fetch the list of templates
+    local templates=$(curl -s "$api_url" | jq -r '.[] | select(.name | endswith(".yml")) | .name' 2>/dev/null)
+    
+    if [ -z "$templates" ]; then
+        echo -e "${YELLOW}Using default template list (unable to fetch from repository)${NC}"
+        echo ""
+        echo "1) claude.yml - Basic Claude workflow (recommended)"
+        echo "2) claude-auto-review.yml - Automatic code review on PRs"
+        echo "3) claude-pr-path-specific.yml - Path-specific PR review"
+        echo "4) claude-review-from-author.yml - Author-initiated review"
+        echo "5) claude-advanced.yml - Advanced workflow with full permissions (OAuth only)"
+        echo "6) claude-advanced-api.yml - Advanced workflow for API key authentication"
+    else
+        echo -e "${GREEN}Available templates from repository:${NC}"
+        echo ""
+        local i=1
+        echo "$templates" | while read -r template; do
+            echo "$i) $template"
+            ((i++))
+        done
+        
+        # Add local advanced templates if they exist
+        if [ -f "$HOME/.claude-action-auth/claude-advanced.yml" ]; then
+            echo ""
+            echo -e "${BLUE}Local advanced templates:${NC}"
+            echo "A) claude-advanced.yml - Advanced workflow with full permissions (OAuth only)"
+        fi
+        if [ -f "$HOME/.claude-action-auth/claude-advanced-api.yml" ]; then
+            echo "B) claude-advanced-api.yml - Advanced workflow for API key authentication"
+        fi
+    fi
+    echo ""
+}
+
+# Ask for template selection
+ask_template() {
+    local auth_type="${1:-}"
+    
+    # Get list of templates
+    local api_url=""
+    if [ "$auth_type" = "oauth" ]; then
+        api_url="https://api.github.com/repos/hikarubw/claude-code-action/contents/examples?ref=oauth"
+    else
+        api_url="https://api.github.com/repos/anthropics/claude-code-action/contents/examples?ref=beta"
+    fi
+    
+    # Show the templates first
+    list_templates "$auth_type"
+    
+    # Fetch templates into an array
+    local templates_json=$(curl -s "$api_url" 2>/dev/null)
+    local templates_array=()
+    
+    if [ -n "$templates_json" ] && [ "$templates_json" != "null" ]; then
+        while IFS= read -r template; do
+            templates_array+=("$template")
+        done < <(echo "$templates_json" | jq -r '.[] | select(.name | endswith(".yml")) | .name')
+    fi
+    
+    # If no templates fetched, use defaults
+    if [ ${#templates_array[@]} -eq 0 ]; then
+        templates_array=("claude.yml" "claude-auto-review.yml" "claude-pr-path-specific.yml" "claude-review-from-author.yml")
+    fi
+    
+    while true; do
+        read -p "Select template: " choice
+        
+        # Handle numeric choices
+        if [[ "$choice" =~ ^[0-9]+$ ]]; then
+            local index=$((choice - 1))
+            if [ $index -ge 0 ] && [ $index -lt ${#templates_array[@]} ]; then
+                echo "${templates_array[$index]}"
+                return
+            fi
+        fi
+        
+        # Handle letter choices for local templates
+        case "$choice" in
+            [Aa])
+                if [ -f "$HOME/.claude-action-auth/claude-advanced.yml" ]; then
+                    echo "claude-advanced.yml"
+                    return
+                fi
+                ;;
+            [Bb])
+                if [ -f "$HOME/.claude-action-auth/claude-advanced-api.yml" ]; then
+                    echo "claude-advanced-api.yml"
+                    return
+                fi
+                ;;
+        esac
+        
+        echo -e "${RED}Invalid selection. Please try again.${NC}" >&2
+    done
+}
+
+
 # Install workflow
 install_workflow() {
     local auth_type="${1:-oauth}"
-    echo -e "${BLUE}Installing Claude GitHub Action workflow (${auth_type} mode)...${NC}"
+    local template="${2:-}"
+    
+    echo -e "${BLUE}Installing Claude GitHub Action workflow...${NC}"
     
     mkdir -p .github/workflows
     
@@ -155,29 +293,54 @@ install_workflow() {
         cp .github/workflows/claude.yml .github/workflows/claude.yml.bak
     fi
     
-    # Determine template file
-    local template_name="claude.yml"
-    if [ "$auth_type" = "api" ]; then
-        template_name="claude-api.yml"
+    # If no template specified, ask user
+    if [ -z "$template" ]; then
+        template=$(ask_template "$auth_type")
     fi
     
-    # Check for local template first
-    local template_file="$HOME/.claude-action-auth/${template_name}"
-    
-    echo "Installing workflow template..."
-    
-    # Try local template first
-    if [ -f "$template_file" ]; then
-        cp "$template_file" .github/workflows/claude.yml
-        echo -e "${GREEN}✓ Workflow installed from local template${NC}"
-        return 0
+    # Special handling for advanced templates
+    if [ "$template" = "claude-advanced.yml" ] || [ "$template" = "claude-advanced-api.yml" ]; then
+        # Check auth type compatibility
+        if [ "$template" = "claude-advanced.yml" ] && [ "$auth_type" != "oauth" ]; then
+            echo -e "${RED}Error: Advanced OAuth template requires OAuth authentication${NC}"
+            echo "Run: claude-auth setup --auth-type=oauth"
+            return 1
+        fi
+        
+        if [ "$template" = "claude-advanced-api.yml" ] && [ "$auth_type" != "api" ]; then
+            echo -e "${RED}Error: Advanced API template requires API key authentication${NC}"
+            echo "Run: claude-auth setup --auth-type=api"
+            return 1
+        fi
+        
+        # Use local advanced template
+        local local_template="$HOME/.claude-action-auth/$template"
+        if [ -f "$local_template" ]; then
+            cp "$local_template" .github/workflows/claude.yml
+            echo -e "${GREEN}✓ Advanced workflow installed: $template${NC}"
+            return 0
+        else
+            echo -e "${RED}Error: Template not found: $template${NC}"
+            return 1
+        fi
     fi
     
-    # Fall back to downloading
-    local workflow_url="https://raw.githubusercontent.com/hikarubw/claude-action-auth/main/templates/${template_name}"
-    echo "Downloading workflow template..."
-    if curl -fsSL "$workflow_url" -o .github/workflows/claude.yml; then
-        echo -e "${GREEN}✓ Workflow installed${NC}"
+    # Download from claude-code-action repository
+    local workflow_url=""
+    
+    if [ "$auth_type" = "oauth" ]; then
+        # Download from OAuth branch for OAuth workflows
+        workflow_url="https://raw.githubusercontent.com/hikarubw/claude-code-action/oauth/examples/${template}"
+    else
+        # Download from original repository for API workflows
+        workflow_url="https://raw.githubusercontent.com/anthropics/claude-code-action/beta/examples/${template}"
+    fi
+    
+    echo "Downloading ${template}..."
+    
+    if curl -fsSL "$workflow_url" -o .github/workflows/claude.yml 2>/dev/null; then
+        # No transformation needed for OAuth branch files
+        echo -e "${GREEN}✓ Workflow installed: ${template}${NC}"
         return 0
     else
         echo -e "${RED}Failed to download workflow template${NC}"
@@ -203,9 +366,6 @@ setup_api_key() {
         exit 1
     fi
     
-    # Install workflow
-    install_workflow "api"
-    
     # Instructions for API key
     echo ""
     echo -e "${YELLOW}=== Manual Step Required ===${NC}"
@@ -224,10 +384,12 @@ setup_api_key() {
     echo "   - Name: ANTHROPIC_API_KEY"
     echo "   - Value: Your API key"
     echo ""
-    echo "3. Commit and push the workflow:"
-    echo "   git add .github/workflows/claude.yml"
-    echo "   git commit -m 'Add Claude API workflow'"
-    echo "   git push"
+    echo -e "${GREEN}=== API Key Setup Complete! ===${NC}"
+    echo ""
+    echo "Next steps:"
+    echo "1. Run: claude-auth install"
+    echo "2. Select a workflow template"
+    echo "3. Commit and push changes"
     echo ""
     echo "Claude will respond to @claude mentions in Issues and PRs!"
 }
@@ -253,15 +415,6 @@ setup_oauth() {
     # Get credentials
     get_claude_credentials
     
-    # Install workflow if not present
-    local workflow_installed=false
-    if [ ! -f ".github/workflows/claude.yml" ]; then
-        install_workflow "oauth"
-        workflow_installed=true
-    else
-        echo -e "${YELLOW}Workflow already exists, skipping installation${NC}"
-    fi
-    
     # Set GitHub secrets
     echo ""
     echo "Configuring GitHub repository secrets..."
@@ -277,17 +430,10 @@ setup_oauth() {
     echo ""
     echo -e "${GREEN}=== OAuth Setup Complete! ===${NC}"
     echo ""
-    if [ "$workflow_installed" = true ]; then
-        echo "Next steps:"
-        echo "1. Review .github/workflows/claude.yml"
-        echo "2. Commit and push changes:"
-        echo "   git add .github/workflows/claude.yml"
-        echo "   git commit -m 'Add Claude OAuth workflow'"
-        echo "   git push"
-    else
-        echo "✓ Secrets have been updated for the existing workflow"
-        echo "✓ No file changes needed"
-    fi
+    echo "Next steps:"
+    echo "1. Run: claude-auth install"
+    echo "2. Select a workflow template"
+    echo "3. Commit and push changes"
     echo ""
     echo "Claude will respond to @claude mentions in Issues and PRs!"
 }
@@ -472,11 +618,15 @@ main() {
     # Parse arguments
     local command=""
     local auth_type=""
+    local template=""
     
     for arg in "$@"; do
         case "$arg" in
             --auth-type=*)
                 auth_type="${arg#*=}"
+                ;;
+            --template=*)
+                template="${arg#*=}"
                 ;;
             --version)
                 echo "claude-auth v${VERSION}"
@@ -511,13 +661,19 @@ main() {
             setup "$auth_type"
             ;;
         install)
-            if [ -n "$auth_type" ]; then
-                install_workflow "$auth_type"
-            else
-                # Ask for auth type
-                auth_type=$(ask_auth_type)
-                install_workflow "$auth_type"
+            check_dependencies
+            # Detect auth type from secrets if not specified
+            if [ -z "$auth_type" ]; then
+                if gh secret list 2>/dev/null | grep -q "CLAUDE_ACCESS_TOKEN"; then
+                    auth_type="oauth"
+                elif gh secret list 2>/dev/null | grep -q "ANTHROPIC_API_KEY"; then
+                    auth_type="api"
+                else
+                    echo -e "${YELLOW}No authentication configured. Run 'claude-auth setup' first.${NC}"
+                    auth_type=$(ask_auth_type)
+                fi
             fi
+            install_workflow "$auth_type" "$template"
             ;;
         test)
             test_configuration

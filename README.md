@@ -1,5 +1,7 @@
 # Claude Action Auth
 
+[![CI](https://github.com/hikarubw/claude-action-auth/actions/workflows/ci.yml/badge.svg)](https://github.com/hikarubw/claude-action-auth/actions/workflows/ci.yml)
+
 > Simple authentication setup tool for Claude Code Action on GitHub
 
 A streamlined CLI tool that configures authentication (OAuth or API Key) for Claude Code Action to interact with your GitHub repositories through Issues and Pull Requests.
@@ -20,7 +22,8 @@ curl -fsSL https://raw.githubusercontent.com/hikarubw/claude-action-auth/main/in
 
 # Setup authentication in your project
 cd your-project
-claude-auth setup  # Interactive - choose OAuth or API Key
+claude-auth setup   # Configure OAuth or API Key
+claude-auth install # Choose and install workflow
 
 # That's it! Claude will now respond to @claude mentions
 ```
@@ -57,6 +60,8 @@ export PATH="$HOME/.local/bin:$PATH"
 ## Usage
 
 ### Setup Authentication
+
+#### Step 1: Configure Authentication
 ```bash
 # Interactive setup (recommended)
 claude-auth setup
@@ -66,11 +71,26 @@ claude-auth setup --auth-type=oauth
 
 # API key setup (uses Anthropic API key)
 claude-auth setup --auth-type=api
+```
 
-# Just install the workflow
+#### Step 2: Install Workflow
+```bash
+# Interactive template selection
 claude-auth install
-claude-auth install --auth-type=api
 
+# Use specific template
+claude-auth install --template=claude-auto-review.yml
+```
+
+#### Available Templates:
+- `claude.yml` - Basic Claude workflow (recommended)
+- `claude-auto-review.yml` - Automatic code review on PRs
+- `claude-pr-path-specific.yml` - Path-specific PR review
+- `claude-review-from-author.yml` - Author-initiated review
+- `claude-advanced.yml` - Advanced workflow with full permissions (OAuth only)
+
+#### Other Commands
+```bash
 # Test your configuration
 claude-auth test
 
@@ -85,12 +105,13 @@ claude-auth uninstall
 - Supports advanced features (auto-PR, labels, projects)
 - Fully automated setup
 - No API key needed
+- Works with all workflow templates
 
 #### API Key
 - Uses Anthropic API key from console
 - Basic Claude Code features
 - Requires manual secret configuration
-- Simpler workflow file
+- Works with standard claude-code-action templates
 
 ## Requirements
 
@@ -120,10 +141,11 @@ The installed GitHub Action includes:
 
 | Command | Description |
 |---------|-------------|
-| `claude-auth setup` | Interactive authentication setup |
+| `claude-auth setup` | Configure authentication (OAuth or API key) |
 | `claude-auth setup --auth-type=oauth` | OAuth setup |
 | `claude-auth setup --auth-type=api` | API key setup |
-| `claude-auth install` | Install workflow only |
+| `claude-auth install` | Install workflow template (interactive) |
+| `claude-auth install --template=<name>` | Install specific workflow template |
 | `claude-auth test` | Verify configuration |
 | `claude-auth uninstall` | Remove setup |
 | `claude-auth help` | Show help message |

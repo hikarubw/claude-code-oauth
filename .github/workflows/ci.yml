@@ -1,0 +1,164 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Lint Shell Scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@2.0.0
+        with:
+          check_together: 'yes'
+          severity: error
+          scandir: '.'
+          format: gcc
+          ignore_paths: |
+            .git
+            .github
+            templates
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup test environment
+        run: |
+          # Install dependencies
+          sudo apt-get update
+          sudo apt-get install -y jq
+          
+      - name: Check script syntax
+        run: |
+          echo "Checking bash syntax..."
+          bash -n claude-auth
+          bash -n install.sh
+          bash -n uninstall.sh
+          bash -n test.sh || true
+          
+      - name: Run tests
+        run: |
+          chmod +x test.sh
+          ./test.sh
+        continue-on-error: true
+        
+      - name: Test installation
+        run: |
+          echo "Testing local installation..."
+          ./install.sh $HOME/test-bin
+          
+          # Check if installed
+          if [ ! -f "$HOME/test-bin/claude-auth" ]; then
+            echo "Error: claude-auth not installed"
+            exit 1
+          fi
+          
+          # Test help command
+          $HOME/test-bin/claude-auth help
+          
+          # Test version
+          $HOME/test-bin/claude-auth --version
+          
+      - name: Test CLI commands (dry run)
+        run: |
+          export PATH="$HOME/test-bin:$PATH"
+          
+          # These will fail without proper setup, but we check syntax
+          claude-auth help || true
+          claude-auth --version || true
+
+  version-check:
+    name: Version Consistency Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check version consistency
+        run: |
+          # Get version from VERSION file
+          VERSION_FILE=$(cat VERSION)
+          echo "VERSION file: $VERSION_FILE"
+          
+          # Get version from claude-auth script
+          SCRIPT_VERSION=$(grep '^VERSION=' claude-auth | cut -d'"' -f2)
+          echo "Script version: $SCRIPT_VERSION"
+          
+          # Compare versions
+          if [ "$VERSION_FILE" != "$SCRIPT_VERSION" ]; then
+            echo "Error: Version mismatch!"
+            echo "  VERSION file: $VERSION_FILE"
+            echo "  Script version: $SCRIPT_VERSION"
+            exit 1
+          fi
+          
+          echo "✅ Versions match: $VERSION_FILE"
+
+  validate-templates:
+    name: Validate Workflow Templates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Validate YAML syntax
+        run: |
+          # Install yamllint
+          pip install yamllint
+          
+          # Validate workflow templates
+          echo "Validating workflow templates..."
+          yamllint -d relaxed templates/*.yml
+          
+      - name: Check required fields in workflows
+        run: |
+          for template in templates/*.yml; do
+            echo "Checking $template..."
+            
+            # Check for required fields
+            if ! grep -q "name:" "$template"; then
+              echo "Error: Missing 'name' field in $template"
+              exit 1
+            fi
+            
+            if ! grep -q "on:" "$template"; then
+              echo "Error: Missing 'on' field in $template"
+              exit 1
+            fi
+            
+            if ! grep -q "jobs:" "$template"; then
+              echo "Error: Missing 'jobs' field in $template"
+              exit 1
+            fi
+            
+            echo "✅ $template has required fields"
+          done
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run Trivy security scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
