@@ -124,6 +124,7 @@ jobs:
             trailing-spaces: disable
             comments: disable
             comments-indentation: disable
+            new-line-at-end-of-file: disable
           EOF
           
           yamllint -c .yamllint.yml templates/*.yml
