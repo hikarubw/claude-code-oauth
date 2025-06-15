@@ -356,6 +356,8 @@ install_workflow() {
 
 # Setup API Key
 setup_api_key() {
+    local from_init="$1"
+    
     echo -e "${BLUE}Setting up Claude API Key authentication...${NC}"
     echo ""
     
@@ -391,17 +393,23 @@ setup_api_key() {
     echo "   - Value: Your API key"
     echo ""
     echo -e "${GREEN}=== API Key Setup Complete! ===${NC}"
-    echo ""
-    echo "Next steps:"
-    echo "1. Run: claude-auth install"
-    echo "2. Select a workflow template"
-    echo "3. Commit and push changes"
-    echo ""
-    echo "Claude will respond to @claude mentions in Issues and PRs!"
+    
+    # Only show next steps if not called from init
+    if [ "$from_init" != "from_init" ]; then
+        echo ""
+        echo "Next steps:"
+        echo "1. Run: claude-auth install"
+        echo "2. Select a workflow template"
+        echo "3. Commit and push changes"
+        echo ""
+        echo "Claude will respond to @claude mentions in Issues and PRs!"
+    fi
 }
 
 # Setup OAuth
 setup_oauth() {
+    local from_init="$1"
+    
     echo -e "${BLUE}Setting up Claude OAuth...${NC}"
     echo ""
     
@@ -435,18 +443,23 @@ setup_oauth() {
     # Success message
     echo ""
     echo -e "${GREEN}=== OAuth Setup Complete! ===${NC}"
-    echo ""
-    echo "Next steps:"
-    echo "1. Run: claude-auth install"
-    echo "2. Select a workflow template"
-    echo "3. Commit and push changes"
-    echo ""
-    echo "Claude will respond to @claude mentions in Issues and PRs!"
+    
+    # Only show next steps if not called from init
+    if [ "$from_init" != "from_init" ]; then
+        echo ""
+        echo "Next steps:"
+        echo "1. Run: claude-auth install"
+        echo "2. Select a workflow template"
+        echo "3. Commit and push changes"
+        echo ""
+        echo "Claude will respond to @claude mentions in Issues and PRs!"
+    fi
 }
 
 # Main setup function
 setup() {
     local auth_type="$1"
+    local from_init="$2"
     
     # If no auth type specified, ask
     if [ -z "$auth_type" ]; then
@@ -455,10 +468,10 @@ setup() {
     
     case "$auth_type" in
         oauth)
-            setup_oauth
+            setup_oauth "$from_init"
             ;;
         api)
-            setup_api_key
+            setup_api_key "$from_init"
             ;;
         *)
             echo -e "${RED}Invalid auth type: $auth_type${NC}"
@@ -611,7 +624,7 @@ init() {
     echo ""
     echo -e "${BLUE}Step 1/2: Configuring authentication...${NC}"
     echo ""
-    setup "$auth_type"
+    setup "$auth_type" "from_init"
     
     # Check if setup was successful
     if [ $? -ne 0 ]; then
