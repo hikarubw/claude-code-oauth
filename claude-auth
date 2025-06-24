@@ -360,6 +360,8 @@ install_workflow() {
     if [ -z "$template" ]; then
         # Show template list first
         show_template_list "$auth_type"
+        echo -e "${YELLOW}Note: Selected template will be installed as .github/workflows/claude.yml${NC}"
+        echo ""
         # Then get selection
         template=$(get_template_selection "$auth_type")
     fi
@@ -383,7 +385,7 @@ install_workflow() {
         local local_template="$HOME/.claude-action-auth/$template"
         if [ -f "$local_template" ]; then
             cp "$local_template" .github/workflows/claude.yml
-            echo -e "${GREEN}✓ Advanced workflow installed: $template${NC}"
+            echo -e "${GREEN}✓ Advanced workflow installed: $template → .github/workflows/claude.yml${NC}"
             return 0
         else
             echo -e "${RED}Error: Template not found: $template${NC}"
@@ -406,7 +408,7 @@ install_workflow() {
     
     if curl -fsSL "$workflow_url" -o .github/workflows/claude.yml 2>/dev/null; then
         # No transformation needed for OAuth branch files
-        echo -e "${GREEN}✓ Workflow installed: ${template}${NC}"
+        echo -e "${GREEN}✓ Workflow installed: ${template} → .github/workflows/claude.yml${NC}"
         return 0
     else
         echo -e "${RED}Failed to download workflow template${NC}"
